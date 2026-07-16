@@ -17,8 +17,10 @@
     --bubble-assistant:#101218; --code-bg:#0a0b10; --inline-code:#1c1e28;
     --weak:#7c6bf0; --weak-glow:rgba(124,107,240,.35);
     --dream:#38e0c8; --dream-glow:rgba(56,224,200,.35);
+    --fabric:#f0a63e; --fabric-glow:rgba(240,166,62,.35);
     --accent:var(--weak); --accent-glow:var(--weak-glow);
     --danger:#f0715f;
+    --logo-green:#39ff8a; --logo-green-dim:#1f6e42;
   }
   html[data-theme="light"]{
     --bg:#f3f3f6; --panel:#ffffff; --line:#e2e2e8;
@@ -72,7 +74,16 @@
     padding:16px clamp(14px,3vw,32px); border-bottom:1px solid var(--line);}
   .brand{display:flex; align-items:baseline; gap:12px;}
   .brand .mark{font-family:'Fraunces',serif; font-weight:700; font-size:24px;
-    background:linear-gradient(90deg,var(--weak),var(--dream)); -webkit-background-clip:text; background-clip:text; color:transparent;}
+    color:var(--logo-green); letter-spacing:.5px;
+    text-shadow:0 0 6px rgba(57,255,138,.55), 0 0 16px rgba(57,255,138,.3), 0 0 30px rgba(57,255,138,.15);
+    animation:logoFlicker 3.6s ease-in-out infinite;}
+  @keyframes logoFlicker{
+    0%,100%{opacity:1; text-shadow:0 0 6px rgba(57,255,138,.6), 0 0 18px rgba(57,255,138,.35), 0 0 32px rgba(57,255,138,.18);}
+    42%{opacity:.92; text-shadow:0 0 4px rgba(57,255,138,.4), 0 0 10px rgba(57,255,138,.2);}
+    46%{opacity:.55; text-shadow:0 0 2px rgba(57,255,138,.2);}
+    50%{opacity:.85; text-shadow:0 0 5px rgba(57,255,138,.4), 0 0 12px rgba(57,255,138,.22);}
+    70%{opacity:1; text-shadow:0 0 6px rgba(57,255,138,.6), 0 0 18px rgba(57,255,138,.35), 0 0 32px rgba(57,255,138,.18);}
+  }
   .header-actions{margin-left:auto; display:flex; gap:8px;}
 
   .icon-btn{width:36px; height:36px; border-radius:10px; border:1px solid var(--line); background:var(--panel);
@@ -130,7 +141,17 @@
   .composer-row .icon-btn:hover{background:var(--bg);}
   textarea{flex:1; min-width:0; resize:none; background:transparent; border:none; outline:none; color:var(--ink);
     font-family:'Inter',sans-serif; font-size:14.5px; line-height:1.5; max-height:200px; padding:8px 4px;}
-  textarea::placeholder{color:#8a8b93;}
+  textarea::placeholder{color:#8a8b93; transition:color .3s;}
+  .composer-row form.empty-state{transition:box-shadow .3s;}
+  .composer-row form.empty-state textarea{text-align:center;}
+  .composer-row form.empty-state textarea::placeholder{
+    color:var(--logo-green-dim);
+    animation:placeholderFlicker 2.8s ease-in-out infinite;
+  }
+  @keyframes placeholderFlicker{
+    0%,100%{opacity:.45;}
+    50%{opacity:.95;}
+  }
   .send-btn{width:36px; height:36px; border-radius:11px; border:none; cursor:pointer; flex-shrink:0;
     background:linear-gradient(135deg,var(--accent),transparent); color:#fff; display:flex; align-items:center; justify-content:center; transition:.2s;}
   .send-btn svg{width:16px; height:16px;}
@@ -201,6 +222,12 @@
   @keyframes fadeSlideUp{ from{opacity:0; transform:translateY(10px);} to{opacity:1; transform:translateY(0);} }
   @keyframes modalPop{ from{opacity:0; transform:translateY(14px) scale(.96);} to{opacity:1; transform:translateY(0) scale(1);} }
   @keyframes overlayFade{ from{opacity:0;} to{opacity:1;} }
+  @keyframes chatDrop{
+    0%{ transform:translateY(-16px); }
+    55%{ transform:translateY(5px); }
+    100%{ transform:translateY(0); }
+  }
+  .chat.dropping{ animation:chatDrop .5s cubic-bezier(.22,1,.36,1); }
   .msg{ animation:fadeSlideUp .32s cubic-bezier(.16,1,.3,1); }
   .side-item{ animation:fadeSlideUp .28s cubic-bezier(.16,1,.3,1); }
   .empty.anim{ animation:fadeSlideUp .4s cubic-bezier(.16,1,.3,1); }
@@ -287,6 +314,10 @@
           <div class="picker-item" onclick="setMode('dream')">
             <div class="titles"><div class="t">Dream</div><div class="s">Отвечает мгновенно, коротко и по делу</div></div>
             <span class="check" id="check-dream" style="visibility:hidden">✓</span>
+          </div>
+          <div class="picker-item" onclick="setMode('fabric')">
+            <div class="titles"><div class="t">Fabric</div><div class="s">Мощный режим: сплетает несколько источников в один развёрнутый ответ</div></div>
+            <span class="check" id="check-fabric" style="visibility:hidden">✓</span>
           </div>
           <div class="picker-divider"></div>
           <div class="picker-footer"><span>Источники</span><span>Wiki · Meteo · FX</span></div>
@@ -413,14 +444,22 @@ document.addEventListener('click', e=>{
     pickerPop.classList.remove('show'); pickerBtn.classList.remove('open');
   }
 });
+const MODES = {
+  weak:   { label:'Weak',   colorVar:'--weak',   glowVar:'--weak-glow' },
+  dream:  { label:'Dream',  colorVar:'--dream',  glowVar:'--dream-glow' },
+  fabric: { label:'Fabric', colorVar:'--fabric', glowVar:'--fabric-glow' },
+};
 function setMode(m){
+  if(!MODES[m]) m = 'dream';
   mode = m;
-  document.getElementById('pickerLabel').textContent = m==='weak' ? 'Weak' : 'Dream';
-  document.getElementById('check-weak').style.visibility = m==='weak' ? 'visible':'hidden';
-  document.getElementById('check-dream').style.visibility = m==='dream' ? 'visible':'hidden';
-  document.getElementById('pickerSwatch').style.background = m==='weak' ? 'var(--weak)' : 'var(--dream)';
-  document.documentElement.style.setProperty('--accent', m==='weak' ? 'var(--weak)' : 'var(--dream)');
-  document.documentElement.style.setProperty('--accent-glow', m==='weak' ? 'var(--weak-glow)' : 'var(--dream-glow)');
+  document.getElementById('pickerLabel').textContent = MODES[m].label;
+  Object.keys(MODES).forEach(k=>{
+    const el = document.getElementById('check-'+k);
+    if(el) el.style.visibility = (m===k) ? 'visible':'hidden';
+  });
+  document.getElementById('pickerSwatch').style.background = `var(${MODES[m].colorVar})`;
+  document.documentElement.style.setProperty('--accent', `var(${MODES[m].colorVar})`);
+  document.documentElement.style.setProperty('--accent-glow', `var(${MODES[m].glowVar})`);
   pickerPop.classList.remove('show'); pickerBtn.classList.remove('open');
 }
 setMode('dream');
@@ -455,9 +494,10 @@ function addCopyButtons(el){
 }
 function addMessage(role, html){
   emptyEl.style.display='none';
+  document.getElementById('form').classList.remove('empty-state');
   const wrap=document.createElement('div'); wrap.className='msg '+role;
   wrap.innerHTML=`<div class="avatar">${role==='user'?'Вы':'AI'}</div><div class="bubble">${html}</div>`;
-  chatEl.appendChild(wrap); chatEl.scrollTop=chatEl.scrollHeight;
+  chatEl.appendChild(wrap); chatEl.scrollTo({top:chatEl.scrollHeight, behavior:'smooth'});
   return wrap.querySelector('.bubble');
 }
 function showFooterHint(){ footerHint.classList.add('show'); }
@@ -484,6 +524,7 @@ function resetChatUI(){
   emptyEl.style.display = currentMessages.length ? 'none' : 'flex';
   footerHint.classList.toggle('show', currentMessages.length>0);
   emptyEl.classList.remove('anim'); void emptyEl.offsetWidth; emptyEl.classList.add('anim');
+  document.getElementById('form').classList.toggle('empty-state', currentMessages.length===0);
 }
 
 function newChat(){
@@ -643,24 +684,13 @@ function geoWeatherFlow(){
   if(busy) return;
   emptyEl.style.display='none'; showFooterHint();
   addMessage('user', '<p>📍 Погода по геолокации</p>');
-  const bubble = addMessage('assistant', searchNote('запрашиваю доступ к местоположению…'));
-  if(!('geolocation' in navigator)){ bubble.innerHTML = 'Этот браузер не поддерживает геолокацию.'; return; }
-  navigator.geolocation.getCurrentPosition(async pos=>{
-    const {latitude, longitude} = pos.coords;
-    bubble.innerHTML = searchNote('доступ получен, читаю прогноз по координатам…');
-    try{
-      const w = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current_weather=true`).then(r=>r.json());
-      const cw = w.current_weather;
-      let place = 'вашей локации';
-      try{
-        const geo = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=ru`).then(r=>r.json());
-        place = geo.city || geo.locality || geo.principalSubdivision || place;
-      }catch(e){}
-      bubble.innerHTML = renderMarkdown(`Погода в **${place}** сейчас: **${cw.temperature}°C**, ветер ${cw.windspeed} км/ч.`) +
-        `<div class="src">🔗 Open‑Meteo (по геолокации)</div>`;
-      addCopyButtons(bubble);
-    }catch(e){ bubble.innerHTML = 'Не удалось получить погоду по геолокации — проверь интернет-соединение.'; }
-  }, err=>{ bubble.innerHTML = 'Вы отклонили, я не смог проверить погоду по вашему гео.'; });
+  const bubble = addMessage('assistant', searchNote('запрашиваю точный доступ к местоположению…'));
+  (async()=>{
+    bubble.innerHTML = searchNote('доступ получен, читаю точный прогноз по координатам…');
+    const res = await getGeoWeather();
+    bubble.innerHTML = renderMarkdown(res.text) + (res.src ? `<div class="src">🔗 ${escapeHtml(res.src)}</div>` : '');
+    addCopyButtons(bubble);
+  })();
 }
 
 /* ============ распознавание фото: текст/домашка + вещи на фото ============ */
@@ -766,7 +796,7 @@ async function handleImageFile(file){
   }catch(err){
     bubble.innerHTML = `<p style="color:var(--danger)">Не удалось распознать изображение: ${escapeHtml(String(err.message||err))}</p>`;
   }
-  chatEl.scrollTop = chatEl.scrollHeight;
+  chatEl.scrollTo({top:chatEl.scrollHeight, behavior:'smooth'});
   busy = false; setSendIcon('send'); inputEl.focus();
 }
 
@@ -821,11 +851,37 @@ async function tryMdn(q){
     return { title: doc.title, summary: doc.summary, url: 'https://developer.mozilla.org' + doc.mdn_url };
   }catch(e){ return null; }
 }
+function getBrowserPosition(){
+  return new Promise((resolve, reject)=>{
+    if(!('geolocation' in navigator)){ reject(new Error('no-geo')); return; }
+    navigator.geolocation.getCurrentPosition(
+      pos=>resolve(pos.coords),
+      err=>reject(err),
+      { enableHighAccuracy:true, timeout:10000, maximumAge:60000 }
+    );
+  });
+}
+async function getGeoWeather(){
+  try{
+    const {latitude, longitude} = await getBrowserPosition();
+    const w = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current_weather=true`).then(r=>r.json());
+    const cw = w.current_weather;
+    let place = 'вашей точной локации';
+    try{
+      const geo = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=ru`).then(r=>r.json());
+      place = geo.city || geo.locality || geo.principalSubdivision || place;
+    }catch(e){}
+    return { text:`Погода в **${place}** сейчас (точно по геолокации): **${cw.temperature}°C**, ветер ${cw.windspeed} км/ч.`, src:'Open‑Meteo (точно по геолокации устройства)' };
+  }catch(e){
+    if(e && e.code === 1) return { text:'Не удалось выдать точную погоду по гео — доступ к местоположению отклонён в браузере. Разреши геолокацию (значок замка рядом с адресом сайта) или напиши город явно, например: «погода в Алматы».' };
+    return { text:'Не удалось определить точную геолокацию для погоды. Разреши доступ к местоположению в браузере, либо укажи город явно, например: «погода в Алматы».' };
+  }
+}
 async function tryWeather(q){
   const lower = q.toLowerCase();
   if(!/погод/.test(lower)) return null;
   let city = stripQuestionWords(q).replace(/погод[а-я]*/gi,'').replace(/\bв\b/gi,'').trim();
-  if(!city) return {text:'Уточни город, например: «погода в Алматы».'};
+  if(!city) return await getGeoWeather();
   try{
     const geo = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1&language=ru`).then(r=>r.json());
     if(!geo.results || !geo.results.length) return {text:`Не нашёл город «${city}» в базе Open‑Meteo.`};
@@ -896,16 +952,390 @@ function tryKnowledge(q){
   for(const item of KNOWLEDGE){ if(item.keys.some(k=>lower.includes(k))) return item.text; }
   return null;
 }
+
+/* ============ большая база источников (код / оригами / вики / поделки) ============ */
+const SOURCES = [
+  // --- код / программирование (25) ---
+  {name:'MDN Web Docs', url:'https://developer.mozilla.org/ru/', tag:'code'},
+  {name:'W3Schools', url:'https://www.w3schools.com/', tag:'code'},
+  {name:'javascript.info', url:'https://learn.javascript.ru/', tag:'code'},
+  {name:'freeCodeCamp', url:'https://www.freecodecamp.org/', tag:'code'},
+  {name:'GeeksforGeeks', url:'https://www.geeksforgeeks.org/', tag:'code'},
+  {name:'Stack Overflow', url:'https://stackoverflow.com/', tag:'code'},
+  {name:'GitHub', url:'https://github.com/', tag:'code'},
+  {name:'Python — официальная документация', url:'https://docs.python.org/3/', tag:'code'},
+  {name:'Real Python', url:'https://realpython.com/', tag:'code'},
+  {name:'PyPI', url:'https://pypi.org/', tag:'code'},
+  {name:'Habr', url:'https://habr.com/', tag:'code'},
+  {name:'Codecademy', url:'https://www.codecademy.com/', tag:'code'},
+  {name:'LeetCode', url:'https://leetcode.com/', tag:'code'},
+  {name:'HackerRank', url:'https://www.hackerrank.com/', tag:'code'},
+  {name:'React — документация', url:'https://react.dev/', tag:'code'},
+  {name:'Vue.js — документация', url:'https://vuejs.org/', tag:'code'},
+  {name:'Node.js — документация', url:'https://nodejs.org/ru/docs', tag:'code'},
+  {name:'TypeScript — документация', url:'https://www.typescriptlang.org/docs/', tag:'code'},
+  {name:'CSS-Tricks', url:'https://css-tricks.com/', tag:'code'},
+  {name:'DevDocs', url:'https://devdocs.io/', tag:'code'},
+  {name:'W3C', url:'https://www.w3.org/', tag:'code'},
+  {name:'Can I Use', url:'https://caniuse.com/', tag:'code'},
+  {name:'npm', url:'https://www.npmjs.com/', tag:'code'},
+  {name:'Google for Developers', url:'https://developers.google.com/', tag:'code'},
+  {name:'Exercism', url:'https://exercism.org/', tag:'code'},
+  // --- оригами (20) ---
+  {name:'Origami Resource Center', url:'https://www.origami-resource-center.com/', tag:'origami'},
+  {name:'Origami Club', url:'https://en.origami-club.com/', tag:'origami'},
+  {name:'Happy Folding', url:'https://www.happyfolding.com/', tag:'origami'},
+  {name:'British Origami Society', url:'https://www.britishorigami.info/', tag:'origami'},
+  {name:'OrigamiUSA', url:'https://origamiusa.org/', tag:'origami'},
+  {name:'Robert Lang — Lang Origami', url:'https://langorigami.com/', tag:'origami'},
+  {name:'Origami.ru', url:'https://origami.ru/', tag:'origami'},
+  {name:'WikiHow: Origami', url:'https://www.wikihow.com/Category:Origami', tag:'origami'},
+  {name:'Instructables: Origami', url:'https://www.instructables.com/circuits/craft/origami/', tag:'origami'},
+  {name:'Paper Kawaii', url:'https://www.paperkawaii.com/', tag:'origami'},
+  {name:'Easy Origami', url:'https://www.easy-origami.com/', tag:'origami'},
+  {name:'Origami Way', url:'https://www.origamiway.com/', tag:'origami'},
+  {name:'Origami Instructions', url:'https://www.origami-instructions.com/', tag:'origami'},
+  {name:'Origami Fun', url:'https://www.origami-fun.com/', tag:'origami'},
+  {name:'All About Origami', url:'https://www.allaboutorigami.com/', tag:'origami'},
+  {name:'Origami Spirit', url:'https://origamispirit.com/', tag:'origami'},
+  {name:"Tavin's Origami Instructions", url:'https://www.tavinsorigami.com/', tag:'origami'},
+  {name:'Folding Trees', url:'https://foldingtrees.com/', tag:'origami'},
+  {name:'Wikipedia: Оригами', url:'https://ru.wikipedia.org/wiki/Оригами', tag:'origami'},
+  {name:'Оригами-схемы на Pinterest', url:'https://www.pinterest.com/search/pins/?q=оригами%20схемы', tag:'origami'},
+  // --- вики / общие энциклопедии (15) ---
+  {name:'Wikipedia (RU)', url:'https://ru.wikipedia.org/', tag:'wiki'},
+  {name:'Wikipedia (EN)', url:'https://en.wikipedia.org/', tag:'wiki'},
+  {name:'Simple English Wikipedia', url:'https://simple.wikipedia.org/', tag:'wiki'},
+  {name:'Wiktionary', url:'https://ru.wiktionary.org/', tag:'wiki'},
+  {name:'WikiHow', url:'https://www.wikihow.com/', tag:'wiki'},
+  {name:'Britannica', url:'https://www.britannica.com/', tag:'wiki'},
+  {name:'Wikimedia Commons', url:'https://commons.wikimedia.org/', tag:'wiki'},
+  {name:'Академик (dic.academic.ru)', url:'https://dic.academic.ru/', tag:'wiki'},
+  {name:'Большая российская энциклопедия', url:'https://bigenc.ru/', tag:'wiki'},
+  {name:'Кругосвет', url:'https://www.krugosvet.ru/', tag:'wiki'},
+  {name:'NASA', url:'https://www.nasa.gov/', tag:'wiki'},
+  {name:'Khan Academy', url:'https://www.khanacademy.org/', tag:'wiki'},
+  {name:'Coursera', url:'https://www.coursera.org/', tag:'wiki'},
+  {name:'TED', url:'https://www.ted.com/', tag:'wiki'},
+  {name:'PostNauka', url:'https://postnauka.org/', tag:'wiki'},
+  // --- поделки / рукоделие (10) ---
+  {name:'Instructables', url:'https://www.instructables.com/', tag:'craft'},
+  {name:'Pinterest', url:'https://www.pinterest.com/', tag:'craft'},
+  {name:'YouTube — поиск идей', url:'https://www.youtube.com/', tag:'craft'},
+  {name:'The Spruce Crafts', url:'https://www.thesprucecrafts.com/', tag:'craft'},
+  {name:'FaveCrafts', url:'https://www.favecrafts.com/', tag:'craft'},
+  {name:'AllFreeCrafts', url:'https://www.allfreecrafts.com/', tag:'craft'},
+  {name:'Red Ted Art', url:'https://www.redtedart.com/', tag:'craft'},
+  {name:'Ярмарка Мастеров', url:'https://www.livemaster.ru/', tag:'craft'},
+  {name:'Страна Мастеров', url:'https://stranamasterov.ru/', tag:'craft'},
+  {name:'DIY.org', url:'https://diy.org/', tag:'craft'},
+];
+function pickSources(tag, n){
+  const list = SOURCES.filter(s=>s.tag===tag);
+  const shuffled = [...list].sort(()=>Math.random()-0.5);
+  return shuffled.slice(0, n);
+}
+function sourcesToLinksHtml(list){
+  if(!list.length) return '';
+  return '\n\n**Ещё источники по теме:**\n' + list.map(s=>`- [${s.name}](${s.url})`).join('\n');
+}
+
+/* ============ база идей "что сделать из X" (поделки) ============ */
+const CRAFT_IDEAS = [
+  { name:'бумага', keys:['бумаг'], ideas:['Оригами-фигурки (журавлик, кораблик, коробочка)','Гирлянда или объёмная снежинка','Открытка с 3D-элементами','Papercraft-модель (куб, многогранник)','Аппликация или коллаж'] },
+  { name:'картон', keys:['картон'], ideas:['Домик или гараж для игрушек','Органайзер для канцелярии','Настольная игра или лабиринт для шарика','Маска или костюмный элемент','Кукольный театр'] },
+  { name:'пластиковая бутылка', keys:['пластиков','бутылк'], ideas:['Кашпо для растений','Кормушка для птиц','Совок для сыпучих продуктов','Ваза или органайзер для карандашей','Мини-теплица для рассады'] },
+  { name:'стеклянная банка', keys:['банк','стекл'], ideas:['Подсвечник','Ваза для цветов','Хранилище для круп или специй','Ночник с гирляндой внутри','Диспенсер для мыла'] },
+  { name:'деревянные палочки от мороженого', keys:['палочк','мороженого'], ideas:['Рамка для фото','Домик или скворечник в миниатюре','Подставка под горячее','Игра «крестики-нолики»','Закладка для книги'] },
+  { name:'старые джинсы', keys:['джинс'], ideas:['Сумка или рюкзак','Фартук','Чехол для телефона или планшета','Коврик для дома','Органайзер с карманами на стену'] },
+  { name:'носки', keys:['носк'], ideas:['Мягкая игрушка','Грелка с крупой внутри','Кукла-перчатка','Тряпка для пыли','Подставка под кружку'] },
+  { name:'компакт-диски', keys:['диск','cd','дисков'], ideas:['Зеркальная мозаика','Подставка под горячее','Ёлочная игрушка','Светоотражатель для велосипеда','Декоративный подвес-солнцеловушка'] },
+  { name:'винные пробки', keys:['пробк'], ideas:['Подставка под горячее из спилов','Магниты на холодильник','Держатель для фото или заметок','Ёлочные игрушки','Плавающая свеча-подставка'] },
+  { name:'жестяные банки', keys:['жестян','консервн'], ideas:['Органайзер для карандашей','Кашпо для суккулентов','Подсвечник с узором из отверстий','Кормушка для птиц','Мини-совок или лейка'] },
+  { name:'перегоревшие лампочки', keys:['лампочк','лампоч'], ideas:['Мини-ваза для цветка','Ёлочная игрушка','Мини-террариум','Флакон для масла с фитилём (лампа)','Декоративный подвес'] },
+  { name:'старые шины', keys:['шин','покрышк'], ideas:['Качели для двора','Клумба или кашпо','Песочница','Уличный пуфик','Игровой элемент на детской площадке'] },
+  { name:'деревянные поддоны', keys:['поддон','паллет'], ideas:['Журнальный столик','Полка или стеллаж','Уличный диван или лежак','Вертикальная грядка для сада','Изголовье кровати'] },
+  { name:'проволока', keys:['проволок'], ideas:['Каркас для декоративного дерева','Держатель для украшений','Фигурная подставка под телефон','Абажур для лампы','Ободок для фото-гирлянды'] },
+  { name:'воздушные шары', keys:['шар'], ideas:['Фигуры для праздника (твистинг)','Гирлянда-арка','Пиньята','Форма для папье-маше (маска, ваза)','Фотозона'] },
+  { name:'фетр и ткань', keys:['фетр','ткан'], ideas:['Мягкая игрушка или брелок','Чехол для телефона','Ёлочные украшения','Прихватка для кухни','Панно или гирлянда'] },
+  { name:'бусины и пуговицы', keys:['бусин','пуговиц'], ideas:['Браслет или бусы','Картина-мозаика','Магниты','Брошь','Декор для рамки фото'] },
+  { name:'втулки от туалетной бумаги', keys:['втулк'], ideas:['Органайзер для проводов или кабелей','Фигурки-персонажи (аппликация)','Кормушка для птиц','Бинокль для игры','Держатель для семян рассады'] },
+  { name:'яичные лотки', keys:['лоток','яичн'], ideas:['Кашпо для рассады','Фигурки животных или цветов','Подставка для украшений','Гирлянда-цветы','Звукоизоляционная панель (декор)'] },
+  { name:'ракушки', keys:['ракушк'], ideas:['Рамка для зеркала или фото','Подвеска или колокольчик','Магниты','Панно на морскую тему','Украшение для цветочного горшка'] },
+  { name:'камни', keys:['камн','камешк'], ideas:['Роспись — камни-питомцы или магниты','Садовая дорожка-мозаика','Пресс-папье','Держатель для карточек','Декор для аквариума'] },
+  { name:'глина или пластилин', keys:['глин','пластилин'], ideas:['Лепка посуды или фигурок','Магниты на холодильник','Кулон или брошь','Декоративные подставки','Панно-барельеф'] },
+  { name:'ветки и дерево', keys:['ветк','дерев'], ideas:['Настенная вешалка','Рамка для фото','Ловец снов','Декоративная гирлянда','Подставка для растений'] },
+  { name:'лего', keys:['лего','lego'], ideas:['Подставка для телефона или ручек','Именная табличка','Настольная игра','Брелок или магнит','Мини-диорама'] },
+  { name:'старые книги', keys:['книг'], ideas:['Фигурный тайник (книга-сейф)','Настенный декор из страниц','Открытки из страниц','Полка в форме книги','Гирлянда из страниц'] },
+  { name:'кожа', keys:['кож'], ideas:['Чехол для карт или телефона','Браслет','Брелок','Обложка для блокнота','Кошелёк'] },
+  { name:'металлолом', keys:['металлолом','металл'], ideas:['Садовая скульптура','Подсвечник','Крючки для одежды','Кашпо','Декоративная кормушка для птиц'] },
+];
+function tryCraftSync(q, powerful){
+  if(!/(сделать\s+из|поделк[а-я]*\s+из|идеи\s+из|смастерить\s+из|изготовить\s+из|что\s+можно\s+сделать)/i.test(q)) return null;
+  const m = q.match(/из\s+([а-яёa-z0-9\s\-]+)/i);
+  const material = m ? m[1].trim().replace(/[?!.]+$/,'') : '';
+  const lowerMat = material.toLowerCase();
+  const found = CRAFT_IDEAS.find(c=>c.keys.some(k=>lowerMat.includes(k)));
+  if(found){
+    let html = `**Идеи поделок из «${found.name}»:**\n\n` + found.ideas.map(i=>`- ${i}`).join('\n');
+    html += sourcesToLinksHtml(pickSources('craft', powerful ? 6 : 4));
+    return { html, src:'Glory Craft DB + подборка источников' };
+  }
+  if(material){
+    const qq = encodeURIComponent(material+' поделки идеи');
+    let html = `Точного шаблона под материал «${material}» в базе нет, но вот куда стоит заглянуть за идеями:\n\n` +
+      `- [Поиск на YouTube](https://www.youtube.com/results?search_query=${qq})\n` +
+      `- [Поиск на Pinterest](https://www.pinterest.com/search/pins/?q=${qq})\n` +
+      `- [Instructables](https://www.instructables.com/search/?q=${encodeURIComponent(material)})`;
+    html += sourcesToLinksHtml(pickSources('craft', powerful ? 5 : 3));
+    return { html, src:'подборка ссылок для поиска (без точного совпадения в локальной базе)' };
+  }
+  return null;
+}
+
+/* ============ "любое животное / любой цвет / случайное число…" — живой ответ, а не статья из вики ============ */
+const RANDOM_PICKS = {
+  животное: [
+    ['тигр','🐯','Самая крупная дикая кошка планеты — и единственная полосатая.'],
+    ['слон','🐘','Самое крупное сухопутное животное, а хоботом улавливает запахи за километры.'],
+    ['дельфин','🐬','Спит "наполовину" — одно полушарие мозга бодрствует, чтобы не забыть всплыть за воздухом.'],
+    ['панда','🐼','Ест почти только бамбук, хотя пищеварительная система у неё как у хищника.'],
+    ['жираф','🦒','Самое высокое животное на суше, а язык у него синевато-чёрный — от солнечных ожогов.'],
+    ['ёж','🦔','Сворачивается в колючий шар и может проходить до нескольких километров за ночь.'],
+    ['крокодил','🐊','Живёт на планете почти без изменений уже больше 80 миллионов лет.'],
+    ['коала','🐨','Спит до 20 часов в сутки — эвкалипт даёт мало энергии.'],
+    ['пингвин','🐧','Не летает, зато под водой "летает" не хуже птиц в воздухе.'],
+    ['волк','🐺','Живёт стаей с чёткой иерархией и воет, чтобы держать связь на расстоянии.'],
+    ['осьминог','🐙','У него три сердца и голубая кровь на основе меди, а не железа.'],
+    ['кит','🐳','Синий кит — самое крупное животное за всю историю Земли, крупнее любого динозавра.'],
+    ['лев','🦁','Единственная кошка, которая живёт большими семейными группами — прайдами.'],
+    ['зебра','🦓','Узор полос у каждой особи уникален, как отпечаток пальца.'],
+    ['кенгуру','🦘','Не может пятиться назад — устроено так тело и хвост.'],
+    ['летучая мышь','🦇','Ориентируется в темноте эхолокацией — "видит" ушами.'],
+    ['белый медведь','🐻‍❄️','Шерсть у него на самом деле прозрачная, а кожа под ней чёрная.'],
+    ['сова','🦉','Может поворачивать голову почти на 270 градусов.'],
+  ],
+  цвет: [
+    ['красный','🔴','Первый цвет, который начинают различать младенцы.'],
+    ['синий','🔵','Реже всего встречается в природе — почти нет по-настоящему синих пигментов у растений и животных.'],
+    ['зелёный','🟢','Цвет, который человеческий глаз различает лучше всего — из-за строения сетчатки.'],
+    ['жёлтый','🟡','Самый заметный цвет на большом расстоянии, поэтому им красят такси и спецтехнику.'],
+    ['фиолетовый','🟣','Долгое время был "цветом королей" — краску добывали из редких моллюсков.'],
+    ['оранжевый','🟠','Своё название в русском получил от апельсина ("orange") только в XVIII веке.'],
+    ['бирюзовый','🩵','Смесь синего и зелёного, названа в честь минерала бирюзы.'],
+    ['розовый','🩷','До XX века во многих странах воспринимался как "мужской" оттенок красного.'],
+    ['чёрный','⚫','Технически не цвет, а отсутствие отражённого света.'],
+    ['белый','⚪','Содержит в себе весь видимый спектр света одновременно.'],
+    ['коричневый','🟤','На самом деле это "затемнённый" оранжевый — отдельной длины волны у него нет.'],
+    ['серый','🩶','Нейтральный цвет, который человеческий глаз использует как точку отсчёта для остальных.'],
+  ],
+  фрукт: [
+    ['яблоко','🍎','В мире выращивают более 7500 сортов яблок.'],
+    ['банан','🍌','Ботанически это ягода, а вот клубника — нет.'],
+    ['манго','🥭','Один из самых продаваемых фруктов в мире — обгоняет даже яблоки и бананы вместе.'],
+    ['ананас','🍍','Растёт не на дереве, а прямо из земли, как куст.'],
+    ['киви','🥝','На один плод приходится больше суточной нормы витамина C, чем в апельсине.'],
+    ['гранат','🍎','В одном плоде может быть от 200 до 1400 зёрен.'],
+    ['персик','🍑','Родом из Китая, а не из Персии, хотя название говорит об обратном.'],
+    ['арбуз','🍉','На 92% состоит из воды.'],
+    ['лимон','🍋','Содержит больше сахара, чем клубника, просто кислота маскирует вкус.'],
+    ['авокадо','🥑','Ботанически — это тоже ягода с одной крупной косточкой.'],
+  ],
+  овощ: [
+    ['морковь','🥕','Изначально бывала фиолетовой и жёлтой — оранжевую вывели специально в Голландии.'],
+    ['картофель','🥔','Первый овощ, выращенный в космосе, в 1995 году.'],
+    ['брокколи','🥦','Родственник капусты, цветной капусты и брюссельской капусты — все они произошли от одного дикого растения.'],
+    ['тыква','🎃','Некоторые сорта вырастают больше тонны весом.'],
+    ['огурец','🥒','На 95% состоит из воды — почти как арбуз.'],
+    ['свёкла','🍠','Одна из немногих овощей, у которых съедобны и корень, и листья.'],
+    ['перец','🌶️','Жгучесть измеряют в единицах Сковилла.'],
+    ['баклажан','🍆','Ботанически это ягода, как и помидор.'],
+  ],
+  страна: [
+    ['Япония','🇯🇵','Состоит из более чем 6800 островов, хотя заселена только небольшая часть.'],
+    ['Бразилия','🇧🇷','Занимает почти половину территории Южной Америки.'],
+    ['Исландия','🇮🇸','Там нет комаров — климат им не подходит.'],
+    ['Марокко','🇲🇦','Столица Рабат, но самый известный город — Марракеш.'],
+    ['Новая Зеландия','🇳🇿','Овец там примерно в 5 раз больше, чем людей.'],
+    ['Индия','🇮🇳','Официально признаёт более 20 языков на государственном уровне.'],
+    ['Норвегия','🇳🇴','Летом на севере страны солнце не заходит несколько недель подряд.'],
+    ['Египет','🇪🇬','Почти всё население живёт вдоль Нила — это меньше 5% территории страны.'],
+    ['Перу','🇵🇪','Родина более 3000 сортов картофеля.'],
+    ['Таиланд','🇹🇭','Единственная страна Юго-Восточной Азии, которую никогда не колонизировали европейцы.'],
+    ['Казахстан','🇰🇿','Девятая по площади страна в мире и крупнейшая среди не имеющих выхода к океану.'],
+    ['Канада','🇨🇦','Обладает самой длинной береговой линией в мире.'],
+  ],
+  эмоция: [
+    ['радость','😄','Активирует в мозге те же зоны, что и вкусная еда или музыка.'],
+    ['любопытство','🤔','Считается двигателем обучения — мозг сильнее запоминает то, что интересно.'],
+    ['вдохновение','✨','Часто приходит не в момент старания, а сразу после паузы или отдыха.'],
+    ['спокойствие','😌','Замедляет пульс и дыхание почти так же, как медитация.'],
+    ['азарт','🔥','Связан с тем же дофаминовым механизмом мозга, что и предвкушение награды.'],
+    ['ностальгия','🌇','Изначально считалась болезнью — этот термин придумали для описания тоски солдат по дому.'],
+    ['гордость','🏅','Одна из немногих эмоций, которые люди во всём мире выражают одинаковой позой тела.'],
+    ['удивление','😮','Самая короткая по длительности базовая эмоция — длится обычно меньше секунды.'],
+  ],
+  инструмент: [
+    ['гитара','🎸','Современная форма сложилась только в XIX веке благодаря мастеру Антонио Торресу.'],
+    ['пианино','🎹','У полноразмерного пианино обычно 88 клавиш.'],
+    ['скрипка','🎻','Лучшие скрипки Страдивари стоят дороже квартир в центре крупных городов.'],
+    ['барабаны','🥁','Один из древнейших инструментов человечества — старше письменности.'],
+    ['саксофон','🎷','Изобретён только в 1840-х годах бельгийцем Адольфом Саксом.'],
+    ['флейта','🪈','Древнейшие найденные флейты сделаны из птичьих костей и им около 40 000 лет.'],
+    ['виолончель','🎻','Играют на ней сидя — единственный смычковый инструмент такого размера.'],
+    ['укулеле','🎸','Пришло на Гавайи из Португалии в XIX веке и там же получило нынешнее имя.'],
+  ],
+  спорт: [
+    ['футбол','⚽','Самый популярный вид спорта в мире по числу зрителей.'],
+    ['баскетбол','🏀','Изобретён в 1891 году как игра для зимнего зала — буквально забрасывали мяч в корзины из-под персиков.'],
+    ['теннис','🎾','Счёт "15-30-40" в теннисе исторически связан со средневековыми часами.'],
+    ['плавание','🏊','Один из немногих видов спорта, где почти не задействована ударная нагрузка на суставы.'],
+    ['сёрфинг','🏄','Зародился на Гавайях за много веков до появления современных досок.'],
+    ['скалолазание','🧗','С 2020 года входит в официальную программу Олимпийских игр.'],
+    ['бадминтон','🏸','Волан в полёте может разгоняться быстрее, чем мяч в большинстве других видов спорта.'],
+    ['лёгкая атлетика','🏃','Считается "королевой спорта" — старейшая дисциплина Олимпийских игр.'],
+  ],
+  десерт: [
+    ['тирамису','🍰','В переводе с итальянского значит "подними мне настроение".'],
+    ['чизкейк','🍮','Рецепты, похожие на чизкейк, готовили ещё в Древней Греции.'],
+    ['эклер','🥐','Название переводится с французского как "молния" — из-за блестящей глазури.'],
+    ['мороженое','🍦','В Китае рецепты, похожие на мороженое, существовали ещё до нашей эры.'],
+    ['брауни','🍫','Появился в США случайно — считается, что кондитер забыл добавить в тесто разрыхлитель.'],
+    ['панна-котта','🍮','На итальянском означает буквально "варёные сливки".'],
+    ['вафли','🧇','Первые вафельницы появились в Европе ещё в Средневековье.'],
+    ['пахлава','🍯','Одно из древнейших сладких блюд региона — рецептам много веков.'],
+  ],
+  напиток: [
+    ['чай','🍵','Второй по популярности напиток в мире после воды.'],
+    ['кофе','☕','Родина кофе — Эфиопия, а не Южная Америка, как многие думают.'],
+    ['какао','🍫','Ацтеки использовали какао-бобы не только для напитка, но и как валюту.'],
+    ['лимонад','🍋','В своей простейшей форме известен ещё со времён Древнего Египта.'],
+    ['смузи','🥤','Стал массово популярен только в 1970-х благодаря первым бытовым блендерам.'],
+    ['компот','🍎','Слово пришло из французского и изначально означало "смесь".'],
+    ['айран','🥛','Традиционный кисломолочный напиток, которому уже несколько тысяч лет.'],
+    ['морс','🍒','Готовили на Руси ещё до появления сахара — подслащивали мёдом.'],
+  ],
+  профессия: [
+    ['пилот','✈️','Проходит регулярные медицинские проверки чаще, чем представители почти любой другой профессии.'],
+    ['архитектор','🏛️','Должен одновременно думать как инженер и как художник.'],
+    ['программист','💻','Первым программистом в истории считается Ада Лавлейс, писавшая алгоритмы ещё в XIX веке.'],
+    ['повар','👨‍🍳','Профессиональные повара тренируют вкус так же, как спортсмены — тело.'],
+    ['ветеринар','🐾','Лечит животных, которые не могут рассказать, что у них болит.'],
+    ['астроном','🔭','Изучает объекты, свет от которых иногда шёл до нас миллионы лет.'],
+    ['журналист','📰','Работает по принципу проверки фактов минимум из двух независимых источников.'],
+    ['дизайнер','🎨','Решает задачи не только красотой, но и удобством использования.'],
+  ],
+  планета: [
+    ['Меркурий','☿️','Самая близкая к Солнцу планета, но не самая горячая — эта "честь" у Венеры.'],
+    ['Венера','♀️','Сутки на Венере длиннее, чем её собственный год.'],
+    ['Земля','🌍','Единственная известная планета, где подтверждено существование жизни.'],
+    ['Марс','🔴','На нём находится самая высокая гора Солнечной системы — вулкан Олимп.'],
+    ['Юпитер','🪐','Самая большая планета — в неё поместилось бы больше 1300 таких, как Земля.'],
+    ['Сатурн','🪐','Его знаменитые кольца состоят в основном изо льда и камня.'],
+    ['Уран','🔵','Вращается "лёжа на боку" — ось наклонена почти на 98 градусов.'],
+    ['Нептун','🔵','Там дуют самые сильные ветра в Солнечной системе — до 2000 км/ч.'],
+  ],
+  имя: [
+    ['Александр','🧑','Одно из самых распространённых имён в мире — означает "защитник людей".'],
+    ['Мария','👩','Одно из древнейших женских имён, встречается в десятках культур и языков.'],
+    ['Тимур','🧑','Тюркское имя, означающее "железный".'],
+    ['Айгерим','👩','Казахское имя, которое переводится примерно как "лунная красавица".'],
+    ['София','👩','С греческого переводится как "мудрость".'],
+    ['Даниил','🧑','Библейское имя, означающее "Бог мне судья".'],
+    ['Амина','👩','Арабское имя со значением "верная, надёжная".'],
+    ['Максим','🧑','С латинского переводится как "величайший".'],
+    ['Полина','👩','Женская форма имени Павел, означает "маленькая".'],
+    ['Нурлан','🧑','Казахское имя, связанное со словом "свет".'],
+  ],
+};
+const RANDOM_CATEGORY_KEYS = {
+  животное:['животн'], цвет:['цвет'], фрукт:['фрукт'], овощ:['овощ'], число:['число','цифр','номер'],
+  страна:['стран'], эмоция:['эмоц','чувств'], инструмент:['музыкальн','инструмент'], спорт:['спорт'],
+  десерт:['десерт','сладост'], напиток:['напит'], профессия:['професси'], планета:['планет'], имя:['имя','имен'],
+};
+const RANDOM_TRIGGER = /(люб[а-я]{2,4}\b|как[а-я]{2,4}-нибудь|случайн[а-я]{2,5}|назови|предложи|придумай|выбери|дай\s+мне|подкинь)/i;
+function isPrime(n){ if(n<2) return false; for(let i=2;i*i<=n;i++){ if(n%i===0) return false; } return true; }
+function buildRandomNumber(){
+  const n = Math.floor(Math.random()*100)+1;
+  const facts = [n%2===0 ? 'чётное' : 'нечётное'];
+  if(isPrime(n)) facts.push('простое');
+  if(Number.isInteger(Math.sqrt(n))) facts.push('точный квадрат');
+  return { name:String(n), emoji:'🔢', fact:`Это число ${facts.join(', ')}.` };
+}
+function tryRandomPick(q){
+  const lower = q.toLowerCase();
+  if(!RANDOM_TRIGGER.test(lower)) return null;
+  for(const cat of Object.keys(RANDOM_CATEGORY_KEYS)){
+    if(!RANDOM_CATEGORY_KEYS[cat].some(k=>lower.includes(k))) continue;
+    let name, emoji, fact;
+    if(cat === 'число'){
+      ({name, emoji, fact} = buildRandomNumber());
+    } else {
+      const list = RANDOM_PICKS[cat];
+      if(!list || !list.length) return null;
+      [name, emoji, fact] = list[Math.floor(Math.random()*list.length)];
+    }
+    let html;
+    if(mode === 'dream'){
+      html = `${emoji} **${name}**. ${fact}`;
+    } else if(mode === 'fabric'){
+      html = `Пусть будет **${name}** ${emoji}\n\n${fact}`;
+      html += sourcesToLinksHtml(pickSources('wiki', 2));
+    } else {
+      html = `Беру наугад — **${name}** ${emoji}\n\n${fact}`;
+    }
+    return { html };
+  }
+  return null;
+}
+
+async function wikiLookup(lang, term){
+  if(!term) return null;
+  try{
+    const search = await fetch(`https://${lang}.wikipedia.org/w/api.php?action=opensearch&search=${encodeURIComponent(term)}&limit=1&namespace=0&format=json&origin=*`).then(r=>r.json());
+    const title = search[1] && search[1][0];
+    if(!title) return null;
+    const summary = await fetch(`https://${lang}.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`).then(r=>r.json());
+    if(!summary.extract) return null;
+    return { title, extract: summary.extract, url: summary.content_urls?.desktop?.page, lang };
+  }catch(e){ return null; }
+}
 async function tryWiki(q){
   const query = stripQuestionWords(q);
   if(!query) return null;
+  // 1) очищенный запрос на русской Википедии
+  let res = await wikiLookup('ru', query);
+  if(res) return res;
+  // 2) исходная фраза целиком (вдруг очистка убрала нужное слово)
+  const raw = q.trim();
+  if(raw && raw.toLowerCase() !== query.toLowerCase()){
+    res = await wikiLookup('ru', raw);
+    if(res) return res;
+  }
+  // 3) по отдельным значимым словам запроса (от самого длинного)
+  const words = query.split(/\s+/).filter(w=>w.length>=3).sort((a,b)=>b.length-a.length);
+  for(const w of words){
+    res = await wikiLookup('ru', w);
+    if(res) return res;
+  }
+  // 4) английская Википедия как последний резерв
+  res = await wikiLookup('en', query);
+  if(res) return res;
+  for(const w of words){
+    res = await wikiLookup('en', w);
+    if(res) return res;
+  }
+  return null;
+}
+async function tryWiktionary(q){
+  const query = stripQuestionWords(q);
+  if(!query) return null;
+  const word = query.split(/\s+/)[0];
+  if(!word) return null;
   try{
-    const search = await fetch(`https://ru.wikipedia.org/w/api.php?action=opensearch&search=${encodeURIComponent(query)}&limit=1&namespace=0&format=json&origin=*`).then(r=>r.json());
-    const title = search[1] && search[1][0];
-    if(!title) return null;
-    const summary = await fetch(`https://ru.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`).then(r=>r.json());
-    if(!summary.extract) return null;
-    return { title, extract: summary.extract, url: summary.content_urls?.desktop?.page };
+    const html = await fetch(`https://ru.wiktionary.org/api/rest_v1/page/summary/${encodeURIComponent(word)}`).then(r=>r.json());
+    if(!html.extract) return null;
+    return { title: html.title, extract: html.extract, url: html.content_urls?.desktop?.page };
   }catch(e){ return null; }
 }
 async function webSearchTop3(q){
@@ -920,9 +1350,10 @@ async function webSearchTop3(q){
 async function stepsFor(kind, bubble){
   const notes = [];
   const push = async (text, delay)=>{ notes.push(searchNote(text)); bubble.innerHTML = notes.join(''); if(delay) await wait(delay); };
-  if(mode === 'weak'){
+  if(mode === 'weak' || mode === 'fabric'){
     if(kind==='wiki'){
       await push('открываю Википедию…', 450); await push('читаю статью, ищу нужный раздел…', 650); await push('сверяю формулировку и собираю ответ…', 500);
+      if(mode==='fabric') await push('сплетаю несколько источников для более мощного ответа…', 450);
     } else if(kind==='weather'){
       await push('подключаюсь к Open‑Meteo…', 400); await push('получаю координаты города…', 500); await push('читаю текущий прогноз…', 450);
     } else if(kind==='country'){
@@ -933,9 +1364,48 @@ async function stepsFor(kind, bubble){
       await push('шаблона нет в библиотеке, иду смотреть MDN…', 400); await push('читаю статью документации…', 500);
     } else if(kind==='search'){
       await push('запускаю быстрый поиск по открытым источникам…', 400); await push('собираю топ-3 результата…', 450);
+    } else if(kind==='craft'){
+      await push('ищу идеи по материалу в базе поделок…', 400); await push('подбираю подходящие источники…', 400);
+    } else if(kind==='origami'){
+      await push('открываю Википедию и базу источников по оригами…', 450); await push('собираю схемы и ссылки…', 450);
+    } else if(kind==='random'){
+      await push('перебираю варианты в голове…', 350);
+      if(mode==='fabric') await push('сверяю с источниками для более мощного ответа…', 350);
     }
   }
   return notes;
+}
+
+const WIKI_INTROS = ['Смотри, что нашлось:','Вот что удалось откопать:','Если коротко:','Нашёл вот что:','Собрал из открытых источников:','Покопался — вот что есть:'];
+function humanIntro(){ return WIKI_INTROS[Math.floor(Math.random()*WIKI_INTROS.length)]; }
+
+const HUMAN_REACTIONS = [
+  'Занятная штука, если вдуматься.',
+  'Никогда бы не подумал, но факт есть факт.',
+  'Вот такой неожиданный поворот.',
+  'Мелочь, а запоминается.',
+  'В двух словах — примерно так.',
+];
+/* ============ пересказ статьи «своими словами», а не копипаста ============ */
+function humanizeExtract(extract, mode){
+  if(!extract) return '';
+  // режем на предложения и убираем канцелярские скобочные пояснения вида (лат. ...), (от греч. ...)
+  const clean = extract.replace(/\s*\([^()]{0,60}(лат\.|греч\.|англ\.|от\s)[^()]{0,60}\)/gi, '');
+  const sentences = clean.split(/(?<=[.!?])\s+/).filter(Boolean);
+  const take = mode === 'dream' ? 1 : (mode === 'fabric' ? 3 : 2);
+  let picked = sentences.slice(0, take).join(' ').trim();
+  // лёгкая перефразировка канцелярских оборотов на разговорные
+  picked = picked
+    .replace(/^Явля(ется|ются)\s+/i, 'По сути, ')
+    .replace(/\bпредставляет собой\b/gi, 'это, по сути,')
+    .replace(/\bявляется\b/gi, 'это')
+    .replace(/\bявляются\b/gi, 'это');
+  const lead = humanIntro();
+  let out = mode === 'dream' ? picked : `${lead} ${picked}`;
+  if(mode !== 'dream' && Math.random() < 0.55){
+    out += `\n\n${HUMAN_REACTIONS[Math.floor(Math.random()*HUMAN_REACTIONS.length)]}`;
+  }
+  return out;
 }
 
 async function answer(q, bubble){
@@ -949,10 +1419,33 @@ async function answer(q, bubble){
   if(code === null){
     const notes = await stepsFor('mdn', bubble);
     const mdn = await tryMdn(q);
-    if(mdn) return { html:`В своей библиотеке шаблона не нашёл, зато нашлась статья на MDN:\n\n**${mdn.title}**\n\n${mdn.summary}`, notes, src:`MDN: ${mdn.title}`, srcUrl: mdn.url };
-    return { html:'В библиотеке нет готового шаблона под эту задачу, и на MDN тоже не нашлось точного совпадения. В библиотеке есть: сортировки, бинарный поиск, FizzBuzz, палиндром, числа Фибоначчи, HTTP-запрос и таймер.', notes };
+    if(mdn){
+      let html = `В своей библиотеке шаблона не нашёл, зато нашлась статья на MDN:\n\n**${mdn.title}**\n\n${mdn.summary}`;
+      html += sourcesToLinksHtml(pickSources('code', 4));
+      return { html, notes, src:`MDN: ${mdn.title}`, srcUrl: mdn.url };
+    }
+    let html = 'В библиотеке нет готового шаблона под эту задачу, и на MDN тоже не нашлось точного совпадения. В библиотеке есть: сортировки, бинарный поиск, FizzBuzz, палиндром, числа Фибоначчи, HTTP-запрос и таймер.';
+    html += sourcesToLinksHtml(pickSources('code', 4));
+    return { html, notes };
   }
-  if(code !== undefined) return { html: code, notes: [] };
+  if(code !== undefined){
+    return { html: code + sourcesToLinksHtml(pickSources('code', 4)), notes: [] };
+  }
+
+  const randomPick = tryRandomPick(q);
+  if(randomPick){ const notes = await stepsFor('random', bubble); return { html: randomPick.html, notes }; }
+
+  if(/оригами/i.test(q)){
+    const notes = await stepsFor('origami', bubble);
+    const wiki = await tryWiki(q);
+    let html = wiki ? humanizeExtract(wiki.extract, mode)
+                     : 'Оригами — искусство складывания фигурок из бумаги без ножниц и клея, зародившееся в Японии.';
+    html += sourcesToLinksHtml(pickSources('origami', mode==='fabric' ? 8 : 6));
+    return { html, notes, src: wiki && wiki.url ? `Wikipedia: ${wiki.title}` : null, srcUrl: wiki ? wiki.url : null };
+  }
+
+  const craft = tryCraftSync(q, mode==='fabric');
+  if(craft){ const notes = await stepsFor('craft', bubble); return { html: craft.html, notes, src: craft.src }; }
 
   if(/погод/.test(q.toLowerCase())){
     const notes = await stepsFor('weather', bubble);
@@ -967,18 +1460,34 @@ async function answer(q, bubble){
   const notes = await stepsFor('wiki', bubble);
   const wiki = await tryWiki(q);
   if(wiki){
-    const shortExtract = mode==='dream' ? wiki.extract.split('. ').slice(0,1).join('. ')+'.' : wiki.extract;
-    return { html: shortExtract, notes, src: wiki.url ? `Wikipedia: ${wiki.title}` : null, srcUrl: wiki.url };
+    let html = humanizeExtract(wiki.extract, mode);
+    if(mode==='fabric') html += sourcesToLinksHtml(pickSources('wiki', 3));
+    const label = wiki.lang === 'en' ? `Wikipedia (EN): ${wiki.title}` : `Wikipedia: ${wiki.title}`;
+    return { html, notes, src: wiki.url ? label : null, srcUrl: wiki.url };
   }
   const own = tryKnowledge(q);
   if(own) return { html: own, notes, src: 'внутренние знания Glory (без интернета)' };
 
-  return { html:'Точного источника не нашёл — но могу помочь с математикой, кодом, погодой, курсами валют или странами. Сформулируй вопрос конкретнее, и поищу ещё раз.', notes };
+  const dict = await tryWiktionary(q);
+  if(dict) return { html: dict.extract, notes, src: dict.url ? `Викисловарь: ${dict.title}` : null, srcUrl: dict.url };
+
+  // ничего не нашли ни в одной базе — всё равно даём содержательный ответ с рабочими ссылками
+  const query = stripQuestionWords(q) || q.trim();
+  const qq = encodeURIComponent(query);
+  let html = `Точной статьи по запросу «${escapeHtml(query)}» не нашёл ни в Википедии, ни в Викисловаре, ни в MDN — но вот куда посмотреть прямо сейчас:\n\n` +
+    `- [Поиск в Википедии (RU)](https://ru.wikipedia.org/w/index.php?search=${qq})\n` +
+    `- [Поиск в Wikipedia (EN)](https://en.wikipedia.org/w/index.php?search=${qq})\n` +
+    `- [Поиск в Google](https://www.google.com/search?q=${qq})\n` +
+    `- [Поиск в Яндексе](https://yandex.ru/search/?text=${qq})\n\n` +
+    `Также умею: математика, код (с источниками), погода точно по гео, курсы валют, страны, поделки «из чего-то», оригами.`;
+  return { html, notes };
 }
 
 /* ============ внешние ИИ-провайдеры (свой ключ пользователя) ============ */
 async function callExternalAI(provider, apiKey, history, signal, searchContext){
-  const styleHint = mode==='weak' ? 'Отвечай обстоятельно и точно, разбирай вопрос глубже.' : 'Отвечай кратко и сразу по делу.';
+  const styleHint = mode==='weak' ? 'Отвечай обстоятельно и точно, разбирай вопрос глубже.'
+    : mode==='fabric' ? 'Отвечай мощно и по-человечески: разворачивай мысль, добавляй конкретные примеры и живые детали, но без воды. Если вопрос общий (например "любое животное") — выбери конкретный пример, а не давай общее определение категории.'
+    : 'Отвечай кратко и сразу по делу.';
   const sys = (searchContext
     ? `Ты — Glory, полезный ассистент. Используй результаты поиска ниже, если это уместно, и упомяни источники в ответе.\n\nРезультаты поиска:\n${searchContext}\n\n`
     : 'Ты — Glory, полезный ассистент, умеешь писать код и объяснять.\n\n') + styleHint;
@@ -1051,7 +1560,9 @@ async function onSend(){
   inputEl.value=''; inputEl.style.height='auto'; localStorage.removeItem(DRAFT_KEY);
   busy = true; setSendIcon('stop');
   emptyEl.style.display='none'; showFooterHint();
+  document.getElementById('form').classList.remove('empty-state');
 
+  chatEl.classList.remove('dropping'); void chatEl.offsetWidth; chatEl.classList.add('dropping');
   addMessage('user', `<p>${escapeHtml(text).replace(/\n/g,'<br>')}</p>`);
   currentMessages.push({role:'user', content:text});
   persistActiveChat();
@@ -1104,7 +1615,7 @@ async function onSend(){
     }
   }
   busy=false; setSendIcon('send'); activeCtrl=null;
-  chatEl.scrollTop = chatEl.scrollHeight;
+  chatEl.scrollTo({top:chatEl.scrollHeight, behavior:'smooth'});
   inputEl.focus();
 }
 
