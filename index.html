@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="ru" data-theme="dark">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,18 +7,24 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/11.1.1/marked.min.js"></script>
-
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.0/dist/mobilenet.min.js"></script>
-
 <style>
   :root{
     --bg:#0c0d12; --panel:#14161d; --line:#23262f;
     --ink:#e9e8e4; --dim:#9a9ba3;
+    --bubble-assistant:#101218; --code-bg:#0a0b10; --inline-code:#1c1e28;
     --weak:#7c6bf0; --weak-glow:rgba(124,107,240,.35);
     --dream:#38e0c8; --dream-glow:rgba(56,224,200,.35);
     --accent:var(--weak); --accent-glow:var(--weak-glow);
     --danger:#f0715f;
+  }
+  html[data-theme="light"]{
+    --bg:#f3f3f6; --panel:#ffffff; --line:#e2e2e8;
+    --ink:#16171c; --dim:#6c6d78;
+    --bubble-assistant:#f0f0f4; --code-bg:#f5f5f8; --inline-code:#e9e9ee;
   }
   *{box-sizing:border-box;} body{margin:0;} html,body{height:100%;}
   body{
@@ -27,15 +33,48 @@
       radial-gradient(1000px 500px at 100% 10%, rgba(56,224,200,.07), transparent 60%),
       var(--bg);
     color:var(--ink); font-family:'Inter',sans-serif;
-    display:flex; flex-direction:column; min-height:100vh;
   }
 
-  header{display:flex; align-items:center; justify-content:space-between;
-    padding:22px clamp(16px,4vw,48px) 14px; border-bottom:1px solid var(--line);}
+  .app{display:flex; height:100vh; overflow:hidden;}
+
+  /* ---- sidebar ---- */
+  .sidebar{width:250px; flex-shrink:0; background:var(--panel); border-right:1px solid var(--line);
+    display:flex; flex-direction:column; padding:14px; gap:10px; transition:margin-left .25s ease;}
+  .sidebar.collapsed{margin-left:-250px;}
+  .side-newchat{display:flex; align-items:center; gap:8px; padding:10px 12px; border-radius:10px;
+    border:1px solid var(--line); background:transparent; color:var(--ink); font-family:'Inter',sans-serif;
+    font-size:13px; font-weight:600; cursor:pointer; transition:.2s;}
+  .side-newchat:hover{border-color:var(--accent); box-shadow:0 0 16px var(--accent-glow);}
+  .side-newchat svg{width:15px;height:15px;}
+  .side-list{flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:4px;}
+  .side-item{display:flex; align-items:center; justify-content:space-between; gap:6px;
+    padding:9px 10px; border-radius:8px; cursor:pointer; font-size:12.5px; color:var(--dim);}
+  .side-item:hover{background:var(--bg);}
+  .side-item.active{background:var(--bg); color:var(--ink);}
+  .side-item-title{overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .side-item-del{background:none; border:none; color:var(--dim); cursor:pointer; opacity:0; font-size:12px; flex-shrink:0;}
+  .side-item:hover .side-item-del{opacity:1;}
+  .side-empty{color:var(--dim); font-size:12px; padding:10px; text-align:center;}
+  .side-settings{display:flex; align-items:center; gap:8px; padding:10px 12px; border-radius:10px;
+    border:1px solid transparent; background:transparent; color:var(--dim); font-family:'Inter',sans-serif;
+    font-size:13px; cursor:pointer; transition:.2s;}
+  .side-settings:hover{border-color:var(--line); color:var(--ink);}
+  .side-settings svg{width:15px;height:15px;}
+
+  .main-col{flex:1; display:flex; flex-direction:column; min-width:0;}
+
+  header{display:flex; align-items:center; gap:10px;
+    padding:16px clamp(14px,3vw,32px); border-bottom:1px solid var(--line);}
   .brand{display:flex; align-items:baseline; gap:12px;}
-  .brand .mark{font-family:'Fraunces',serif; font-weight:700; font-size:26px;
+  .brand .mark{font-family:'Fraunces',serif; font-weight:700; font-size:24px;
     background:linear-gradient(90deg,var(--weak),var(--dream)); -webkit-background-clip:text; background-clip:text; color:transparent;}
-  .brand .tag{font-size:12px; color:var(--dim); font-family:'IBM Plex Mono',monospace;}
+  .header-actions{margin-left:auto; display:flex; gap:8px;}
+
+  .icon-btn{width:36px; height:36px; border-radius:10px; border:1px solid var(--line); background:var(--panel);
+    color:var(--dim); display:flex; align-items:center; justify-content:center; cursor:pointer; transition:.2s; flex-shrink:0;}
+  .icon-btn svg{width:16px; height:16px;}
+  .icon-btn:hover{color:var(--ink); border-color:var(--accent); box-shadow:0 0 14px var(--accent-glow);}
+  .icon-btn.active{color:#fff; background:linear-gradient(135deg,var(--accent),transparent); border-color:var(--accent); box-shadow:0 0 14px var(--accent-glow);}
 
   main{flex:1; width:100%; max-width:860px; margin:0 auto; display:flex; flex-direction:column;
     padding:0 clamp(12px,4vw,24px); min-height:0;}
@@ -43,31 +82,32 @@
   .chat{flex:1; overflow-y:auto; padding:28px 4px 12px; display:flex; flex-direction:column; gap:18px;}
   .chat::-webkit-scrollbar{width:8px;} .chat::-webkit-scrollbar-thumb{background:var(--line); border-radius:8px;}
 
-  .empty{margin:auto; text-align:center; color:var(--dim); max-width:460px;}
+  .empty{margin:auto; text-align:center; color:var(--dim); max-width:460px; display:flex; flex-direction:column; align-items:center;}
   .empty .glyph{font-family:'Fraunces',serif; font-size:44px; font-weight:600; color:var(--ink); margin-bottom:10px;}
-  .empty p{font-size:13.5px; line-height:1.6;}
+  .empty p{font-size:14px; line-height:1.6; min-height:1.4em;}
   .chips{display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-top:16px;}
   .chip{border:1px solid var(--line); background:var(--panel); color:var(--dim);
     padding:8px 13px; border-radius:10px; font-size:12.5px; cursor:pointer; transition:.2s;}
-  .chip:hover{border-color:var(--accent); color:var(--ink);}
+  .chip:hover{border-color:var(--accent); color:var(--ink); box-shadow:0 0 14px var(--accent-glow);}
 
   .msg{display:flex; gap:12px;}
   .msg .avatar{flex-shrink:0; width:30px; height:30px; border-radius:9px; display:flex; align-items:center; justify-content:center;
     font-family:'IBM Plex Mono',monospace; font-size:11px; font-weight:600;}
   .msg.user{flex-direction:row-reverse;}
-  .msg.user .avatar{background:#232530; color:var(--dim);}
+  .msg.user .avatar{background:var(--line); color:var(--dim);}
   .msg.assistant .avatar{background:linear-gradient(135deg,var(--accent),transparent); color:#fff;}
   .bubble{padding:12px 15px; border-radius:14px; line-height:1.6; font-size:14.5px; border:1px solid var(--line); max-width:78%;}
   .msg.user .bubble{background:var(--panel); border-top-right-radius:4px;}
-  .msg.assistant .bubble{background:#101218; border-top-left-radius:4px; max-width:100%;}
+  .msg.assistant .bubble{background:var(--bubble-assistant); border-top-left-radius:4px; max-width:100%;}
   .bubble p{margin:0 0 8px;} .bubble p:last-child{margin-bottom:0;}
-  .bubble pre{background:#0a0b10; border:1px solid var(--line); border-radius:10px; padding:12px 14px; overflow-x:auto; margin:8px 0; position:relative;}
+  .bubble pre{background:var(--code-bg); border:1px solid var(--line); border-radius:10px; padding:12px 14px; overflow-x:auto; margin:8px 0; position:relative;}
   .bubble code{font-family:'IBM Plex Mono',monospace; font-size:12.8px;}
-  .bubble :not(pre) > code{background:#1c1e28; padding:1px 6px; border-radius:5px;}
+  .bubble :not(pre) > code{background:var(--inline-code); padding:1px 6px; border-radius:5px;}
   .copy-btn{position:absolute; top:8px; right:8px; font-size:10.5px; font-family:'IBM Plex Mono',monospace;
-    background:#1c1e28; color:var(--dim); border:1px solid var(--line); border-radius:6px; padding:3px 8px; cursor:pointer; opacity:0; transition:.2s;}
+    background:var(--inline-code); color:var(--dim); border:1px solid var(--line); border-radius:6px; padding:3px 8px; cursor:pointer; opacity:0; transition:.2s;}
   .bubble pre:hover .copy-btn{opacity:1;}
   .bubble a{color:var(--dream);}
+  .img-preview{max-width:250px; border-radius:8px; margin-top:8px; border:1px solid var(--line); display:block;}
   .src{display:inline-flex; align-items:center; gap:6px; font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--dim);
     border:1px solid var(--line); padding:4px 9px; border-radius:8px; margin-top:6px;}
 
@@ -77,34 +117,30 @@
   .search-note .pulse{width:6px;height:6px;border-radius:50%;background:var(--dream); animation:pulse 1.1s infinite;}
   @keyframes pulse{0%,100%{opacity:.3;} 50%{opacity:1;}}
 
-  .composer-row{padding:14px 4px 8px; display:flex; gap:10px; align-items:flex-end;}
-  .composer-row form{flex:1; display:flex; gap:8px; align-items:flex-end; background:var(--panel); border:1px solid var(--line);
-    border-radius:16px; padding:8px 8px 8px 16px; transition:border-color .2s;}
+  .composer-row{padding:14px 4px 6px; display:flex; gap:10px; align-items:flex-end;}
+  .composer-row form{flex:1; display:flex; gap:6px; align-items:flex-end; background:var(--panel); border:1px solid var(--line);
+    border-radius:16px; padding:7px 8px; transition:border-color .2s;}
   .composer-row form:focus-within{border-color:var(--accent);}
+  .composer-row .icon-btn{width:34px; height:34px; border:none; background:transparent;}
+  .composer-row .icon-btn:hover{background:var(--bg);}
   textarea{flex:1; resize:none; background:transparent; border:none; outline:none; color:var(--ink);
-    font-family:'Inter',sans-serif; font-size:14.5px; line-height:1.5; max-height:160px; padding:6px 0;}
-  textarea::placeholder{color:#5b5d68;}
-  
-  /* Кнопка загрузки картинки */
-  .upload-btn{width:38px; height:38px; border-radius:11px; border:1px solid var(--line); background:var(--bg); 
-    color:var(--dim); font-size:16px; display:flex; align-items:center; justify-content:center; cursor:pointer; transition:.2s; margin-bottom:1px;}
-  .upload-btn:hover{border-color:var(--accent); color:var(--ink);}
-
-  .send-btn{width:38px; height:38px; border-radius:11px; border:none; cursor:pointer; flex-shrink:0;
-    background:linear-gradient(135deg,var(--accent),transparent); color:#fff; font-size:16px;
-    display:flex; align-items:center; justify-content:center; transition:.2s;}
-  .send-btn:disabled{opacity:.4; cursor:not-allowed;}
+    font-family:'Inter',sans-serif; font-size:14.5px; line-height:1.5; max-height:200px; padding:8px 4px;}
+  textarea::placeholder{color:#8a8b93;}
+  .send-btn{width:36px; height:36px; border-radius:11px; border:none; cursor:pointer; flex-shrink:0;
+    background:linear-gradient(135deg,var(--accent),transparent); color:#fff; display:flex; align-items:center; justify-content:center; transition:.2s;}
+  .send-btn svg{width:16px; height:16px;}
+  .send-btn:hover{box-shadow:0 0 16px var(--accent-glow);}
+  .send-btn.is-stop{background:linear-gradient(135deg,var(--danger),transparent);}
 
   /* ---- mode picker ---- */
-  .picker-bar{display:flex; justify-content:flex-end; padding:0 4px 18px; position:relative;}
+  .picker-bar{display:flex; justify-content:flex-end; padding:0 4px 4px; position:relative;}
   .picker-btn{display:flex; align-items:center; gap:6px; background:var(--panel); border:1px solid var(--line);
     color:var(--ink); font-family:'Inter',sans-serif; font-size:12.5px; font-weight:600;
     padding:7px 8px 7px 12px; border-radius:10px; cursor:pointer;}
   .picker-btn .swatch{width:8px;height:8px;border-radius:50%; background:var(--accent);}
   .picker-btn .sub{color:var(--dim); font-weight:400;}
-  .picker-btn svg{transition:transform .2s;}
+  .picker-btn svg{width:11px;height:11px; transition:transform .2s;}
   .picker-btn.open svg{transform:rotate(180deg);}
-
   .picker-pop{position:absolute; bottom:calc(100% + 8px); right:4px; width:280px;
     background:#ffffff; color:#111318; border-radius:16px; box-shadow:0 20px 50px rgba(0,0,0,.45);
     padding:6px; display:none; z-index:20; font-family:'Inter',sans-serif;}
@@ -119,72 +155,207 @@
   .picker-divider{height:1px; background:#ececee; margin:4px 6px;}
   .picker-footer{display:flex; align-items:center; justify-content:space-between; padding:9px 12px; font-size:12.5px; color:#7c7d85;}
 
-  .hint{font-size:11px; color:#54565f; text-align:center; padding-bottom:20px; font-family:'IBM Plex Mono',monospace;}
-  .img-preview {max-width: 250px; border-radius: 8px; margin-top: 8px; border: 1px solid var(--line); display: block;}
+  /* ---- footer: rhythm + hint, appears after first message ---- */
+  .footer-hint{padding-bottom:16px; text-align:center; opacity:0; max-height:0; overflow:hidden; transition:opacity .4s ease;}
+  .footer-hint.show{opacity:1; max-height:60px;}
+  .pulse-bar{height:3px; width:120px; margin:0 auto 6px; border-radius:2px; overflow:hidden; background:var(--line); position:relative;}
+  .pulse-bar::after{content:''; position:absolute; inset:0; width:40%;
+    background:linear-gradient(90deg,transparent,var(--accent),transparent); animation:pulseMove 2.2s linear infinite;}
+  @keyframes pulseMove{0%{transform:translateX(-140%);} 100%{transform:translateX(340%);}}
+  .footer-hint .hint-text{font-size:11px; color:#7c7d85; font-family:'IBM Plex Mono',monospace;}
+
+  /* ---- drag & drop overlay ---- */
+  .drop-overlay{position:fixed; inset:0; z-index:100; display:none; align-items:center; justify-content:center;
+    background:rgba(12,13,18,.85); border:3px dashed var(--accent); color:var(--ink); font-size:18px; font-weight:600;
+    font-family:'Inter',sans-serif; backdrop-filter:blur(4px);}
+  body.drag-over .drop-overlay{display:flex;}
+
+  /* ---- modals ---- */
+  .modal-overlay{position:fixed; inset:0; z-index:200; display:none; align-items:center; justify-content:center;
+    background:rgba(0,0,0,.55); padding:16px;}
+  .modal-overlay.show{display:flex;}
+  .modal{width:100%; max-width:420px; background:var(--panel); border:1px solid var(--line); border-radius:16px; overflow:hidden;}
+  .modal-head{display:flex; align-items:center; justify-content:space-between; padding:16px 18px; border-bottom:1px solid var(--line);}
+  .modal-head h3{margin:0; font-size:15px;}
+  .modal-body{padding:18px; display:flex; flex-direction:column; gap:14px;}
+  .settings-row{display:flex; align-items:center; justify-content:space-between; font-size:13.5px;}
+  .seg-toggle{display:flex; border:1px solid var(--line); border-radius:10px; overflow:hidden;}
+  .seg-toggle button{border:none; background:var(--bg); color:var(--dim); padding:7px 12px; font-size:12px; cursor:pointer; display:flex; gap:6px; align-items:center;}
+  .seg-toggle button svg{width:13px;height:13px;}
+  .seg-toggle button.active{background:var(--accent); color:#fff;}
+  .settings-label{font-size:12px; color:var(--dim); font-family:'IBM Plex Mono',monospace; margin-bottom:6px;}
+  select, .modal input{width:100%; padding:10px 12px; border-radius:10px; border:1px solid var(--line);
+    background:var(--bg); color:var(--ink); font-family:'Inter',sans-serif; font-size:13px; margin-bottom:8px; outline:none;}
+  select:focus, .modal input:focus{border-color:var(--accent);}
+  .settings-note{font-size:11.5px; color:var(--dim); line-height:1.5; margin:0;}
+  .danger-btn{border:none; border-radius:10px; padding:11px; background:var(--danger); color:#fff; font-weight:600;
+    font-size:13px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px;}
+  .danger-btn svg{width:14px;height:14px;}
 </style>
 </head>
 <body>
 
-<header>
-  <div class="brand">
-    <span class="mark">GLORY</span>
-  </div>
-</header>
+<div class="drop-overlay" id="dropOverlay">📎 Отпусти, чтобы прикрепить картинку</div>
 
-<main>
-  <div class="chat" id="chat">
-    <div class="empty" id="empty">
-      <div class="glyph">Glory</div>
-      <p id="introLine"></p>
-      <div class="chips">
-        <div class="chip" onclick="fillAndSend('привет')">👋 Привет</div>
-        <div class="chip" onclick="geoWeatherFlow()">📍 Погода по гео</div>
-        <div class="chip" onclick="fillAndSend('курс доллара к тенге')">💱 Курс доллара</div>
+<div class="app">
+  <aside class="sidebar" id="sidebar">
+    <button class="side-newchat" onclick="newChat()"></button>
+    <div class="side-list" id="sideList"></div>
+    <button class="side-settings" onclick="openSettings()"></button>
+  </aside>
+
+  <div class="main-col">
+    <header>
+      <button class="icon-btn" id="menuToggle" onclick="toggleSidebar()"></button>
+      <div class="brand"><span class="mark">GLORY</span></div>
+      <div class="header-actions">
+        <button class="icon-btn" id="shareBtn" onclick="shareChat()" title="Поделиться"></button>
       </div>
+    </header>
+
+    <main>
+      <div class="chat" id="chat">
+        <div class="empty" id="empty">
+          <div class="glyph">Glory</div>
+          <p id="introLine"></p>
+          <div class="chips">
+            <div class="chip" onclick="fillAndSend('привет')">👋 Привет</div>
+            <div class="chip" onclick="geoWeatherFlow()">📍 Погода по гео</div>
+            <div class="chip" onclick="fillAndSend('курс доллара к тенге')">💱 Курс доллара</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="picker-bar">
+        <button class="picker-btn" id="pickerBtn" onclick="togglePicker()">
+          <span class="swatch" id="pickerSwatch"></span>
+          Glory <span class="sub" id="pickerLabel">Dream</span>
+          <svg viewBox="0 0 20 20" fill="none"><path d="M5 8l5 5 5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <div class="picker-pop" id="pickerPop">
+          <div class="picker-item" onclick="setMode('weak')">
+            <div class="titles"><div class="t">Weak</div><div class="s">Думает медленнее, ответ подробнее и точнее</div></div>
+            <span class="check" id="check-weak" style="visibility:hidden">✓</span>
+          </div>
+          <div class="picker-item" onclick="setMode('dream')">
+            <div class="titles"><div class="t">Dream</div><div class="s">Отвечает мгновенно, коротко и по делу</div></div>
+            <span class="check" id="check-dream" style="visibility:hidden">✓</span>
+          </div>
+          <div class="picker-divider"></div>
+          <div class="picker-footer"><span>Источники</span><span>Wiki · Meteo · FX</span></div>
+        </div>
+      </div>
+
+      <div class="composer-row">
+        <form id="form" onsubmit="return false;">
+          <button type="button" class="icon-btn" title="Прикрепить картинку" onclick="document.getElementById('imageInput').click()"></button>
+          <input type="file" id="imageInput" accept="image/*" style="display:none" onchange="handleImageUpload(event)">
+          <button type="button" class="icon-btn" id="micBtn" title="Голосовой ввод" onclick="toggleMic()"></button>
+          <button type="button" class="icon-btn" id="searchToggle" title="Поиск в сети" onclick="toggleWebSearch()"></button>
+          <textarea id="input" placeholder="Спроси что угодно…" rows="1"></textarea>
+          <button class="send-btn" id="sendBtn" onclick="handleSendOrStop()"></button>
+        </form>
+      </div>
+      <div class="footer-hint" id="footerHint">
+        <div class="pulse-bar"></div>
+        <div class="hint-text">Glory — ИИ. Он может ошибаться.</div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<div class="modal-overlay" id="settingsOverlay">
+  <div class="modal">
+    <div class="modal-head"><h3>Настройки</h3><button class="icon-btn" onclick="closeSettings()"></button></div>
+    <div class="modal-body">
+      <div class="settings-row">
+        <span>Тема</span>
+        <div class="seg-toggle">
+          <button id="themeLight" onclick="setTheme('light')"></button>
+          <button id="themeDark" onclick="setTheme('dark')"></button>
+        </div>
+      </div>
+      <div>
+        <div class="settings-label">ИИ-ПРОВАЙДЕР (ПО ЖЕЛАНИЮ)</div>
+        <select id="providerSelect" onchange="settings.provider=this.value; saveSettings();">
+          <option value="">Офлайн (свой ум Glory)</option>
+          <option value="anthropic">Claude (Anthropic)</option>
+          <option value="openai">ChatGPT (OpenAI)</option>
+          <option value="gemini">Gemini (Google)</option>
+        </select>
+        <input id="keyAnthropic" placeholder="Anthropic API key (sk-ant-...)" oninput="settings.keys.anthropic=this.value; saveSettings();">
+        <input id="keyOpenai" placeholder="OpenAI API key (sk-...)" oninput="settings.keys.openai=this.value; saveSettings();">
+        <input id="keyGemini" placeholder="Google AI (Gemini) API key" oninput="settings.keys.gemini=this.value; saveSettings();">
+        <p class="settings-note">Ключи хранятся только в этом браузере (localStorage) и уходят напрямую выбранному провайдеру — Glory их никуда не передаёт и не видит. Если провайдер не выбран — работает офлайн-режим (свой ум + бесплатные источники без ключей).</p>
+      </div>
+      <button class="danger-btn" onclick="clearAllHistory()"></button>
     </div>
   </div>
+</div>
 
-  <div class="picker-bar">
-    <button class="picker-btn" id="pickerBtn" onclick="togglePicker()">
-      <span class="swatch" id="pickerSwatch"></span>
-      Glory <span class="sub" id="pickerLabel">Dream</span>
-      <svg width="11" height="11" viewBox="0 0 20 20" fill="none"><path d="M5 8l5 5 5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-    </button>
-    <div class="picker-pop" id="pickerPop">
-      <div class="picker-item" onclick="setMode('weak')">
-        <div class="titles"><div class="t">Weak</div><div class="s">Думает медленнее, ответ подробнее и точнее</div></div>
-        <span class="check" id="check-weak" style="visibility:hidden">✓</span>
-      </div>
-      <div class="picker-item" onclick="setMode('dream')">
-        <div class="titles"><div class="t">Dream</div><div class="s">Отвечает мгновенно, коротко и по делу</div></div>
-        <span class="check" id="check-dream" style="visibility:hidden">✓</span>
-      </div>
-      <div class="picker-divider"></div>
-      <div class="picker-footer"><span>Источники</span><span>Vision · Wiki · Meteo · FX</span></div>
+<div class="modal-overlay" id="shareOverlay">
+  <div class="modal">
+    <div class="modal-head"><h3>Поделиться чатом</h3><button class="icon-btn" onclick="closeShare()"></button></div>
+    <div class="modal-body">
+      <p class="settings-note">Весь диалог закодирован прямо в ссылке (без сервера) — открывший её увидит чат в режиме чтения. Для очень длинных чатов ссылка будет длинной.</p>
+      <input id="shareLink" readonly onclick="this.select()">
+      <button class="danger-btn" style="background:var(--accent)" onclick="copyShareLink()">Скопировать ссылку</button>
     </div>
   </div>
-
-  <div class="composer-row">
-    <form id="form" onsubmit="return false;">
-      <input type="file" id="imageInput" accept="image/*" style="display:none" onchange="handleImageUpload(event)">
-      <button type="button" class="upload-btn" title="Загрузить изображение" onclick="document.getElementById('imageInput').click()">🖼️</button>
-      <textarea id="input" placeholder="Спроси что угодно или отправь картинку…" rows="1"></textarea>
-      <button class="send-btn" id="sendBtn" onclick="onSend()">➤</button>
-    </form>
-  </div>
-  <div class="hint">Glory - ИИ. Он может ошибаться.</div>
-</main>
+</div>
 
 <script>
+/* ============ иконки ============ */
+const ICONS = {
+  send:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>`,
+  stop:`<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>`,
+  mic:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>`,
+  globe:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>`,
+  image:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>`,
+  plus:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`,
+  menu:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>`,
+  gear:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>`,
+  share:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.6" y1="13.5" x2="15.4" y2="17.5"/><line x1="15.4" y1="6.5" x2="8.6" y2="10.5"/></svg>`,
+  close:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`,
+  trash:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>`,
+  sun:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.2" y1="4.2" x2="5.6" y2="5.6"/><line x1="18.4" y1="18.4" x2="19.8" y2="19.8"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.2" y1="19.8" x2="5.6" y2="18.4"/><line x1="18.4" y1="5.6" x2="19.8" y2="4.2"/></svg>`,
+  moon:`<svg viewBox="0 0 24 24" fill="currentColor"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>`
+};
+document.querySelector('.side-newchat').innerHTML = ICONS.plus + ' Новый чат';
+document.querySelector('.side-settings').innerHTML = ICONS.gear + ' Настройки';
+document.getElementById('menuToggle').innerHTML = ICONS.menu;
+document.getElementById('shareBtn').innerHTML = ICONS.share;
+document.querySelector('[title="Прикрепить картинку"]').innerHTML = ICONS.image;
+document.getElementById('micBtn').innerHTML = ICONS.mic;
+document.getElementById('searchToggle').innerHTML = ICONS.globe;
+document.getElementById('sendBtn').innerHTML = ICONS.send;
+document.querySelectorAll('.modal-head .icon-btn').forEach(b=>b.innerHTML = ICONS.close);
+document.getElementById('themeLight').innerHTML = ICONS.sun + ' Светлая';
+document.getElementById('themeDark').innerHTML = ICONS.moon + ' Тёмная';
+document.querySelector('#settingsOverlay .danger-btn').innerHTML = ICONS.trash + ' Очистить всю историю чатов';
+
+/* ============ хранилище: настройки / чаты / черновик ============ */
+const SETTINGS_KEY='glory_settings_v1', CHATS_KEY='glory_chats_v1', ACTIVE_KEY='glory_active_chat_v1', DRAFT_KEY='glory_draft_v1';
+
+function loadSettings(){
+  const def = {theme:'dark', provider:'', keys:{anthropic:'',openai:'',gemini:''}, webSearch:false};
+  try{ return Object.assign(def, JSON.parse(localStorage.getItem(SETTINGS_KEY))||{}); }catch(e){ return def; }
+}
+let settings = loadSettings();
+function saveSettings(){ localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); }
+document.documentElement.setAttribute('data-theme', settings.theme);
+
+function loadChats(){ try{ return JSON.parse(localStorage.getItem(CHATS_KEY)) || {}; }catch(e){ return {}; } }
+function saveChats(){ localStorage.setItem(CHATS_KEY, JSON.stringify(chats)); }
+let chats = loadChats();
+let activeChatId = localStorage.getItem(ACTIVE_KEY);
+let currentMessages = [];
+
 /* ============ mode picker ============ */
 let mode = 'dream';
 const pickerBtn = document.getElementById('pickerBtn');
 const pickerPop = document.getElementById('pickerPop');
-
-function togglePicker(){
-  pickerPop.classList.toggle('show');
-  pickerBtn.classList.toggle('open');
-}
+function togglePicker(){ pickerPop.classList.toggle('show'); pickerBtn.classList.toggle('open'); }
 document.addEventListener('click', e=>{
   if(!pickerBtn.contains(e.target) && !pickerPop.contains(e.target)){
     pickerPop.classList.remove('show'); pickerBtn.classList.remove('open');
@@ -205,19 +376,24 @@ setMode('dream');
 const INTRO_LINES = ['Ваш ход.', 'Жду ваш запрос.', 'Начинайте.'];
 document.getElementById('introLine').textContent = INTRO_LINES[Math.floor(Math.random()*INTRO_LINES.length)];
 
-/* ============ chat plumbing ============ */
+/* ============ база: DOM / утилиты ============ */
 const chatEl = document.getElementById('chat');
 const inputEl = document.getElementById('input');
 const emptyEl = document.getElementById('empty');
 const sendBtn = document.getElementById('sendBtn');
+const footerHint = document.getElementById('footerHint');
+const sidebarEl = document.getElementById('sidebar');
+const settingsOverlay = document.getElementById('settingsOverlay');
+const shareOverlay = document.getElementById('shareOverlay');
 let busy = false;
-let netModel = null; // Переменная для хранения загруженной модели MobileNet
+let activeCtrl = null;
+let netModel = null;
 
-inputEl.addEventListener('input', ()=>{ inputEl.style.height='auto'; inputEl.style.height=Math.min(inputEl.scrollHeight,160)+'px'; });
-inputEl.addEventListener('keydown', e=>{ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); onSend(); } });
-function fillAndSend(t){ inputEl.value=t; onSend(); }
+const wait = ms => new Promise(r=>setTimeout(r,ms));
+function searchNote(text){ return `<div class="search-note"><span class="pulse"></span> ${text}</div>`; }
 function escapeHtml(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-function renderMarkdown(t){ return marked.parse(t, {breaks:true}); }
+function renderMarkdown(t){ return marked.parse(t || '', {breaks:true}); }
+function highlightAll(el){ el.querySelectorAll('pre code').forEach(b=>{ try{ hljs.highlightElement(b);}catch(e){} }); }
 function addCopyButtons(el){
   el.querySelectorAll('pre').forEach(pre=>{
     if(pre.querySelector('.copy-btn')) return;
@@ -233,20 +409,177 @@ function addMessage(role, html){
   chatEl.appendChild(wrap); chatEl.scrollTop=chatEl.scrollHeight;
   return wrap.querySelector('.bubble');
 }
-function searchNote(text){ return `<div class="search-note"><span class="pulse"></span> ${text}</div>`; }
+function showFooterHint(){ footerHint.classList.add('show'); }
 
-/* ============ погода по геолокации браузера ============ */
+/* ============ сайдбар / история чатов ============ */
+function toggleSidebar(){ sidebarEl.classList.toggle('collapsed'); }
+
+function renderSidebar(){
+  const list = Object.values(chats).sort((a,b)=>b.createdAt-a.createdAt);
+  const sideList = document.getElementById('sideList');
+  sideList.innerHTML = list.map(c=>`
+    <div class="side-item ${c.id===activeChatId?'active':''}" onclick="loadChat('${c.id}')">
+      <span class="side-item-title">${escapeHtml(c.title||'Новый чат')}</span>
+      <button class="side-item-del" onclick="event.stopPropagation(); deleteChat('${c.id}')">${ICONS.close}</button>
+    </div>`).join('') || '<div class="side-empty">Пока пусто</div>';
+}
+
+function resetChatUI(){
+  chatEl.innerHTML = '';
+  chatEl.appendChild(emptyEl);
+  emptyEl.style.display = currentMessages.length ? 'none' : 'flex';
+  footerHint.classList.toggle('show', currentMessages.length>0);
+}
+
+function newChat(){
+  activeChatId = 'c_' + Date.now();
+  currentMessages = [];
+  chats[activeChatId] = { id:activeChatId, title:'Новый чат', messages:[], createdAt:Date.now() };
+  saveChats(); localStorage.setItem(ACTIVE_KEY, activeChatId);
+  resetChatUI(); renderSidebar();
+  document.getElementById('introLine').textContent = INTRO_LINES[Math.floor(Math.random()*INTRO_LINES.length)];
+}
+
+function persistActiveChat(){
+  if(!activeChatId){ activeChatId='c_'+Date.now(); localStorage.setItem(ACTIVE_KEY, activeChatId); }
+  const prevTitle = chats[activeChatId]?.title;
+  const autoTitle = (currentMessages[0]?.content || 'Новый чат').slice(0,42);
+  chats[activeChatId] = { id:activeChatId, title:(prevTitle && prevTitle!=='Новый чат') ? prevTitle : autoTitle,
+    messages: currentMessages, createdAt: chats[activeChatId]?.createdAt || Date.now() };
+  saveChats(); renderSidebar();
+}
+
+function loadChat(id){
+  activeChatId = id; localStorage.setItem(ACTIVE_KEY, id);
+  currentMessages = chats[id]?.messages || [];
+  resetChatUI();
+  currentMessages.forEach(m=>{
+    const b = addMessage(m.role, renderMarkdown(m.content));
+    if(m.role==='assistant'){ highlightAll(b); addCopyButtons(b); }
+  });
+  renderSidebar();
+}
+
+function deleteChat(id){
+  delete chats[id]; saveChats();
+  if(id===activeChatId){ newChat(); } else { renderSidebar(); }
+}
+
+function clearAllHistory(){
+  if(!confirm('Удалить всю историю чатов без возможности восстановления?')) return;
+  chats = {}; saveChats(); newChat(); closeSettings();
+}
+
+/* ============ настройки ============ */
+function updateThemeButtons(){
+  document.getElementById('themeLight').classList.toggle('active', settings.theme==='light');
+  document.getElementById('themeDark').classList.toggle('active', settings.theme==='dark');
+}
+function setTheme(t){
+  settings.theme=t; document.documentElement.setAttribute('data-theme', t); saveSettings(); updateThemeButtons();
+}
+function openSettings(){
+  document.getElementById('providerSelect').value = settings.provider;
+  document.getElementById('keyAnthropic').value = settings.keys.anthropic;
+  document.getElementById('keyOpenai').value = settings.keys.openai;
+  document.getElementById('keyGemini').value = settings.keys.gemini;
+  updateThemeButtons();
+  settingsOverlay.classList.add('show');
+}
+function closeSettings(){ settingsOverlay.classList.remove('show'); }
+
+/* ============ шеринг ============ */
+function shareChat(){
+  if(!currentMessages.length){ alert('Сначала напиши что-нибудь в чат.'); return; }
+  try{
+    const encoded = encodeURIComponent(btoa(unescape(encodeURIComponent(JSON.stringify({messages:currentMessages})))));
+    document.getElementById('shareLink').value = location.origin + location.pathname + '#share=' + encoded;
+    shareOverlay.classList.add('show');
+  }catch(e){ alert('Не удалось создать ссылку: чат слишком большой.'); }
+}
+function closeShare(){ shareOverlay.classList.remove('show'); }
+function copyShareLink(){
+  const el = document.getElementById('shareLink'); el.select(); navigator.clipboard.writeText(el.value);
+}
+function tryRenderSharedView(){
+  const m = location.hash.match(/^#share=(.+)$/);
+  if(!m) return false;
+  try{
+    const data = JSON.parse(decodeURIComponent(escape(atob(decodeURIComponent(m[1])))));
+    sidebarEl.style.display='none';
+    chatEl.innerHTML='';
+    (data.messages||[]).forEach(msg=>{
+      const b = addMessage(msg.role, renderMarkdown(msg.content));
+      if(msg.role==='assistant'){ highlightAll(b); }
+    });
+    document.querySelector('.composer-row').innerHTML =
+      `<button class="danger-btn" style="width:100%;background:var(--accent)" onclick="location.hash='';location.reload();">Открыть свой Glory</button>`;
+    footerHint.classList.remove('show');
+    return true;
+  }catch(e){ return false; }
+}
+
+/* ============ черновик ============ */
+function restoreDraft(){
+  const d = localStorage.getItem(DRAFT_KEY);
+  if(d){ inputEl.value = d; inputEl.dispatchEvent(new Event('input')); }
+}
+
+/* ============ поле ввода: автовысота + черновик ============ */
+inputEl.addEventListener('input', ()=>{
+  inputEl.style.height='auto'; inputEl.style.height=Math.min(inputEl.scrollHeight,200)+'px';
+  localStorage.setItem(DRAFT_KEY, inputEl.value);
+});
+inputEl.addEventListener('keydown', e=>{ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); onSend(); } });
+function fillAndSend(t){ inputEl.value=t; onSend(); }
+
+/* ============ drag & drop картинок ============ */
+['dragenter','dragover'].forEach(ev=>document.addEventListener(ev, e=>{
+  e.preventDefault();
+  if(e.dataTransfer && Array.from(e.dataTransfer.types||[]).includes('Files')) document.body.classList.add('drag-over');
+}));
+['dragleave','drop'].forEach(ev=>document.addEventListener(ev, e=>{
+  if(ev==='dragleave' && e.target !== document.documentElement && e.relatedTarget) return;
+  e.preventDefault(); document.body.classList.remove('drag-over');
+}));
+document.addEventListener('drop', e=>{
+  const file = e.dataTransfer?.files?.[0];
+  if(file && file.type.startsWith('image/')) handleImageFile(file);
+});
+
+/* ============ голосовой ввод ============ */
+let recognition = null;
+function toggleMic(){
+  const micBtn = document.getElementById('micBtn');
+  if(!recognition){
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if(!SR){ alert('Голосовой ввод не поддерживается этим браузером.'); return; }
+    recognition = new SR();
+    recognition.lang = 'ru-RU'; recognition.interimResults = false; recognition.maxAlternatives = 1;
+    recognition.onresult = e=>{
+      inputEl.value += (inputEl.value ? ' ' : '') + e.results[0][0].transcript;
+      inputEl.dispatchEvent(new Event('input'));
+    };
+    recognition.onend = ()=> micBtn.classList.remove('active');
+    recognition.onerror = ()=> micBtn.classList.remove('active');
+  }
+  if(micBtn.classList.contains('active')){ recognition.stop(); micBtn.classList.remove('active'); }
+  else { recognition.start(); micBtn.classList.add('active'); }
+}
+
+/* ============ переключатель поиска в сети ============ */
+function toggleWebSearch(){
+  settings.webSearch = !settings.webSearch; saveSettings();
+  document.getElementById('searchToggle').classList.toggle('active', settings.webSearch);
+}
+
+/* ============ погода по геолокации ============ */
 function geoWeatherFlow(){
   if(busy) return;
-  emptyEl.style.display='none';
+  emptyEl.style.display='none'; showFooterHint();
   addMessage('user', '<p>📍 Погода по геолокации</p>');
   const bubble = addMessage('assistant', searchNote('запрашиваю доступ к местоположению…'));
-
-  if(!('geolocation' in navigator)){
-    bubble.innerHTML = 'Этот браузер не поддерживает геолокацию.';
-    return;
-  }
-
+  if(!('geolocation' in navigator)){ bubble.innerHTML = 'Этот браузер не поддерживает геолокацию.'; return; }
   navigator.geolocation.getCurrentPosition(async pos=>{
     const {latitude, longitude} = pos.coords;
     bubble.innerHTML = searchNote('доступ получен, читаю прогноз по координатам…');
@@ -261,120 +594,79 @@ function geoWeatherFlow(){
       bubble.innerHTML = renderMarkdown(`Погода в **${place}** сейчас: **${cw.temperature}°C**, ветер ${cw.windspeed} км/ч.`) +
         `<div class="src">🔗 Open‑Meteo (по геолокации)</div>`;
       addCopyButtons(bubble);
-    }catch(e){
-      bubble.innerHTML = 'Не удалось получить погоду по геолокации — проверь интернет-соединение.';
-    }
-  }, err=>{
-    bubble.innerHTML = 'Вы отклонили, я не смог проверить погоду по вашему гео.';
-  });
+    }catch(e){ bubble.innerHTML = 'Не удалось получить погоду по геолокации — проверь интернет-соединение.'; }
+  }, err=>{ bubble.innerHTML = 'Вы отклонили, я не смог проверить погоду по вашему гео.'; });
 }
 
-/* ============ Translation Helper for Common Objects ============ */
+/* ============ распознавание изображений (MobileNet, локально в браузере) ============ */
 const TRANSLATIONS = {
-  'cat': 'кошка', 'tabby': 'тигровая кошка', 'egyptian cat': 'египетская кошка', 'persian cat': 'персидская кошка',
-  'dog': 'собака', 'golden retriever': 'золотистый ретривер', 'german shepherd': 'немецкая овчарка', 'pug': 'мопс',
-  'laptop': 'ноутбук', 'computer': 'компьютер', 'notebook': 'ноутбук', 'screen': 'экран', 'monitor': 'монитор',
-  'mobile phone': 'мобильный телефон', 'cellular telephone': 'смартфон', 'handheld computer': 'КПК/смартфон',
-  'mug': 'кружка', 'coffee mug': 'кружка для кофе', 'cup': 'чашка', 'bottle': 'бутылка', 'water bottle': 'бутылка для воды',
-  'keyboard': 'клавиатура', 'mouse': 'мышка', 'desk': 'стол', 'chair': 'стул', 'book': 'книга', 'paper': 'бумага',
-  'plate': 'тарелка', 'fork': 'вилка', 'knife': 'нож', 'spoon': 'ложка', 'car': 'машина', 'sports car': 'спортивная машина',
-  'wheel': 'колесо', 'window': 'окно', 'tree': 'дерево', 'plant': 'растение', 'flower': 'цветок', 'house': 'дом',
-  'building': 'здание', 'sunglasses': 'солнцезащитные очки', 'glasses': 'очки', 't-shirt': 'футболка', 'person': 'человек'
+  'cat':'кошка','tabby':'тигровая кошка','egyptian cat':'египетская кошка','persian cat':'персидская кошка',
+  'dog':'собака','golden retriever':'золотистый ретривер','german shepherd':'немецкая овчарка','pug':'мопс',
+  'laptop':'ноутбук','computer':'компьютер','notebook':'ноутбук','screen':'экран','monitor':'монитор',
+  'mobile phone':'мобильный телефон','cellular telephone':'смартфон','handheld computer':'КПК/смартфон',
+  'mug':'кружка','coffee mug':'кружка для кофе','cup':'чашка','bottle':'бутылка','water bottle':'бутылка для воды',
+  'keyboard':'клавиатура','mouse':'мышка','desk':'стол','chair':'стул','book':'книга','paper':'бумага',
+  'plate':'тарелка','fork':'вилка','knife':'нож','spoon':'ложка','car':'машина','sports car':'спортивная машина',
+  'wheel':'колесо','window':'окно','tree':'дерево','plant':'растение','flower':'цветок','house':'дом',
+  'building':'здание','sunglasses':'солнцезащитные очки','glasses':'очки','t-shirt':'футболка','person':'человек'
 };
-
-function translateClass(label) {
+function translateClass(label){
   const clean = label.toLowerCase().split(',')[0].trim();
   return TRANSLATIONS[clean] ? `${label} (${TRANSLATIONS[clean]})` : label;
 }
-
-/* ============ Обработка картинок (Нейросетевое зрение) ============ */
-async function handleImageUpload(event) {
+function handleImageUpload(event){
   const file = event.target.files[0];
-  if (!file) return;
-
-  busy = true;
-  sendBtn.disabled = true;
-  emptyEl.style.display = 'none';
-
-  // Создаем URL изображения
-  const imgUrl = URL.createObjectURL(file);
-
-  // Отображаем изображение от пользователя в чате
-  addMessage('user', `
-    <p>Отправил изображение:</p>
-    <img src="${imgUrl}" class="img-preview" id="uploadedImg">
-  `);
-
-  const bubble = addMessage('assistant', '<div class="search-note"><span class="pulse"></span> инициализирую нейросеть...</div>');
-  const notes = [];
-  const pushNote = async (text, delay) => {
-    notes.push(searchNote(text));
-    bubble.innerHTML = notes.join('');
-    if (delay) await wait(delay);
-  };
-
-  try {
-    const imgEl = document.getElementById('uploadedImg');
-
-    // Шаг 1: Загрузка модели (если еще не загружена)
-    if (!netModel) {
-      await pushNote('Загружаю веса нейросети MobileNet v2 (около 15MB)...', 100);
-      netModel = await mobilenet.load();
-      await pushNote('Нейросетевой модуль ИИ успешно инициализирован!', 500);
-    }
-
-    // Шаг 2: Сканирование/Распознавание
-    await pushNote('Сканирую пиксели изображения...', 400);
-    await pushNote('Провожу классификацию объектов (Image Classification)...', 500);
-
-    // Вызов инференса MobileNet
-    const predictions = await netModel.classify(imgEl);
-
-    // Шаг 3: Вывод результатов
-    let html = notes.join('');
-    html += `<p>Я проанализировал изображение и вот что мне удалось распознать с высокой вероятностью:</p><ul>`;
-    predictions.forEach((p, idx) => {
-      const percentage = (p.probability * 100).toFixed(1);
-      const translated = translateClass(p.className);
-      html += `<li><strong>${translated}</strong> — с уверенностью <code>${percentage}%</code></li>`;
-    });
-    html += `</ul><p>Это локальное распознавание, запущенное прямо в вашем браузере через движок TensorFlow.js.</p>`;
-
-    bubble.innerHTML = html;
-
-  } catch (error) {
-    bubble.innerHTML = `<p style="color:var(--danger)">Не удалось распознать изображение: ${escapeHtml(String(error))}</p>`;
-  }
-
-  // Сброс поля выбора файла, чтобы можно было загрузить ту же картинку заново
+  if(file) handleImageFile(file);
   event.target.value = '';
+}
+async function handleImageFile(file){
+  if(busy) return;
+  busy = true; setSendIcon('stop'); emptyEl.style.display='none'; showFooterHint();
+  const imgUrl = URL.createObjectURL(file);
+  addMessage('user', `<p>Отправил изображение:</p><img src="${imgUrl}" class="img-preview" id="uploadedImg">`);
+  const bubble = addMessage('assistant', searchNote('инициализирую нейросеть…'));
+  const notes = [];
+  const pushNote = async (text, delay)=>{ notes.push(searchNote(text)); bubble.innerHTML = notes.join(''); if(delay) await wait(delay); };
+  try{
+    const imgEl = document.getElementById('uploadedImg');
+    if(!netModel){
+      await pushNote('Загружаю веса нейросети MobileNet v2 (около 15MB)…', 100);
+      netModel = await mobilenet.load();
+      await pushNote('Нейросетевой модуль успешно инициализирован!', 400);
+    }
+    await pushNote('Сканирую пиксели изображения…', 350);
+    await pushNote('Провожу классификацию объектов…', 400);
+    const predictions = await netModel.classify(imgEl);
+    let html = notes.join('') + `<p>Распознал на изображении:</p><ul>`;
+    predictions.forEach(p=>{
+      html += `<li><strong>${translateClass(p.className)}</strong> — уверенность <code>${(p.probability*100).toFixed(1)}%</code></li>`;
+    });
+    html += `</ul><p style="opacity:.7;font-size:12.5px">Распознавание выполнено локально в браузере через TensorFlow.js, без отправки картинки куда-либо.</p>`;
+    bubble.innerHTML = html;
+    currentMessages.push({role:'user', content:'[изображение]'});
+    currentMessages.push({role:'assistant', content: predictions.map(p=>translateClass(p.className)).join(', ')});
+    persistActiveChat();
+  }catch(err){
+    bubble.innerHTML = `<p style="color:var(--danger)">Не удалось распознать изображение: ${escapeHtml(String(err))}</p>`;
+  }
   chatEl.scrollTop = chatEl.scrollHeight;
-  busy = false;
-  sendBtn.disabled = false;
-  inputEl.focus();
+  busy = false; setSendIcon('send'); inputEl.focus();
 }
 
-/* ============ tiny "brain": routes the query without calling any AI model ============ */
-
+/* ============ офлайн-мозг: без ИИ-моделей, только логика + бесплатные API ============ */
 function stripQuestionWords(q){
-  return q
-    .replace(/[?!.,;:]/g,' ')
+  return q.replace(/[?!.,;:]/g,' ')
     .replace(/\b(что такое|расскажи про|расскажи о|расскажи|объясни|найди|погугли|поищи|что это|кто такой|кто такая|какая|какой|какие|где находится|где|когда|почему|как)\b/gi,' ')
     .trim();
 }
-
 function tryMath(q){
   const m = q.match(/-?\d+(\.\d+)?\s*[\+\-\*\/\^%]\s*-?\d+(\.\d+)?(\s*[\+\-\*\/\^%]\s*-?\d+(\.\d+)?)*/);
   if(!m) return null;
   const expr = m[0].replace(/\^/g,'**').replace(/,/g,'.');
   if(!/^[\d\s+\-*/%.()]+$/.test(expr.replace(/\*\*/g,''))) return null;
-  try{
-    const val = Function('"use strict";return ('+expr+')')();
-    if(typeof val==='number' && isFinite(val)) return {expr:m[0], val};
-  }catch(e){}
+  try{ const val = Function('"use strict";return ('+expr+')')(); if(typeof val==='number' && isFinite(val)) return {expr:m[0], val}; }catch(e){}
   return null;
 }
-
 const CODE_LIB = [
   { keys:['сортировк','sort'], lang:'python', title:'Сортировка (быстрая, quicksort)',
     code:`def quicksort(arr):\n    if len(arr) <= 1:\n        return arr\n    pivot = arr[len(arr)//2]\n    left = [x for x in arr if x < pivot]\n    mid = [x for x in arr if x == pivot]\n    right = [x for x in arr if x > pivot]\n    return quicksort(left) + mid + quicksort(right)\n\nprint(quicksort([5,3,8,1,9,2]))` },
@@ -393,19 +685,15 @@ const CODE_LIB = [
   { keys:['таймер','timer','отсчёт'], lang:'javascript', title:'Простой таймер',
     code:`function countdown(seconds) {\n  const id = setInterval(() => {\n    console.log(seconds);\n    seconds--;\n    if (seconds < 0) clearInterval(id);\n  }, 1000);\n}\n\ncountdown(5);` },
 ];
-
 function tryCode(q){
   const lower = q.toLowerCase();
   const wantsCode = /(код|напиши|скрипт|функци|программ|code|script)/i.test(lower);
   for(const item of CODE_LIB){
-    if(item.keys.some(k=>lower.includes(k))){
-      return `**${item.title}**\n\n\`\`\`${item.lang}\n${item.code}\n\`\`\``;
-    }
+    if(item.keys.some(k=>lower.includes(k))) return `**${item.title}**\n\n\`\`\`${item.lang}\n${item.code}\n\`\`\``;
   }
-  if(wantsCode) return null; 
-  return undefined; 
+  if(wantsCode) return null;
+  return undefined;
 }
-
 async function tryMdn(q){
   const term = stripQuestionWords(q).replace(/(код|напиши|скрипт|функци[а-я]*|программ[а-я]*|на\s+python|на\s+javascript|на\s+js)/gi,'').trim();
   if(!term) return null;
@@ -416,7 +704,6 @@ async function tryMdn(q){
     return { title: doc.title, summary: doc.summary, url: 'https://developer.mozilla.org' + doc.mdn_url };
   }catch(e){ return null; }
 }
-
 async function tryWeather(q){
   const lower = q.toLowerCase();
   if(!/погод/.test(lower)) return null;
@@ -428,32 +715,23 @@ async function tryWeather(q){
     const g = geo.results[0];
     const w = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${g.latitude}&longitude=${g.longitude}&current_weather=true`).then(r=>r.json());
     const cw = w.current_weather;
-    return { text:`Погода в **${g.name}${g.country ? ', '+g.country : ''}** сейчас: **${cw.temperature}°C**, ветер ${cw.windspeed} км/ч.`,
-             src:'Open‑Meteo (геокодинг + прогноз)' };
+    return { text:`Погода в **${g.name}${g.country ? ', '+g.country : ''}** сейчас: **${cw.temperature}°C**, ветер ${cw.windspeed} км/ч.`, src:'Open‑Meteo (геокодинг + прогноз)' };
   }catch(e){ return {text:'Не удалось получить погоду — проверь интернет-соединение.'}; }
 }
-
 const SMALLTALK = [
   { re:/^(привет|здравствуй|здравствуйте|хай|йо|ку|салам|салем)[!.\s]*$/i,
-    replies:['Привет! Как дела? Спрашивай что угодно — посчитаю, напишу код, поищу факт или отправь мне картинку!','Привет-привет! Чем помочь? Можешь прислать мне изображение через кнопку 🖼️.'] },
-  { re:/как\s+дела/i,
-    replies:['Да я что — просто скрипт, но бегаю бодро) А у тебя как дела?','Всё стабильно, бегаю по открытым API без единого сбоя. А у тебя как?'] },
-  { re:/^(спасибо|благодарю|спс|thx|thanks)/i,
-    replies:['Пожалуйста!','Обращайся в любое время.'] },
-  { re:/^(пока|до свидания|бай|увидимся)/i,
-    replies:['Пока! Возвращайся, если что-то понадобится.'] },
+    replies:['Привет! Как дела? Спрашивай что угодно — посчитаю, напишу код, поищу факт или отправь мне картинку!','Привет-привет! Чем помочь?'] },
+  { re:/как\s+дела/i, replies:['Да я что — просто скрипт, но бегаю бодро) А у тебя как дела?','Всё стабильно. А у тебя как?'] },
+  { re:/^(спасибо|благодарю|спс|thx|thanks)/i, replies:['Пожалуйста!','Обращайся в любое время.'] },
+  { re:/^(пока|до свидания|бай|увидимся)/i, replies:['Пока! Возвращайся, если что-то понадобится.'] },
   { re:/кто\s+ты|ты\s+кто|представься/i,
-    replies:['Я Glory — статичный скрипт-помощник: считаю, знаю немного кода, распознаю изображения через нейросеть MobileNet и хожу за фактами по открытым API (Википедия, Open‑Meteo, REST Countries, Frankfurter).'] },
+    replies:['Я Glory — умею считать, знаю немного кода, распознаю изображения через нейросеть MobileNet и хожу за фактами по открытым API. А если в настройках подключить ключ Claude/ChatGPT/Gemini — отвечаю умнее.'] },
 ];
-
 function trySmallTalk(q){
   const trimmed = q.trim();
-  for(const s of SMALLTALK){
-    if(s.re.test(trimmed)) return s.replies[Math.floor(Math.random()*s.replies.length)];
-  }
+  for(const s of SMALLTALK){ if(s.re.test(trimmed)) return s.replies[Math.floor(Math.random()*s.replies.length)]; }
   return null;
 }
-
 async function tryCurrency(q){
   const lower = q.toLowerCase();
   if(!/(курс|конверт|обмен).*(доллар|евро|тенге|рубл|usd|eur|kzt|rub)|доллар.*тенге|евро.*тенге|usd.*kzt/.test(lower)) return null;
@@ -464,11 +742,10 @@ async function tryCurrency(q){
   try{
     const data = await fetch(`https://api.frankfurter.app/latest?from=${from}&to=${to}`).then(r=>r.json());
     const rate = data.rates[to];
-    if(!rate) return { text:'Frankfurter не поддерживает эту пару (у него только основные мировые валюты, тенге туда не входит).' };
+    if(!rate) return { text:'Frankfurter не поддерживает эту пару (только основные мировые валюты, тенге туда не входит).' };
     return { text:`1 **${from}** = **${rate} ${to}** (курс ЕЦБ на сегодня).`, src:'Frankfurter.app (курсы ЕЦБ)' };
   }catch(e){ return { text:'Не удалось получить курс — проверь интернет.' }; }
 }
-
 async function tryCountry(q){
   const lower = q.toLowerCase();
   if(!/(столица|население\s+страны|флаг\s+страны|страна\s)/.test(lower)) return null;
@@ -478,35 +755,29 @@ async function tryCountry(q){
     const res = await fetch(`https://restcountries.com/v3.1/translation/${encodeURIComponent(name)}?fields=name,capital,population,flag`).then(r=>r.json());
     const c = Array.isArray(res) ? res[0] : null;
     if(!c || !c.name) return { text:`Не нашёл страну «${name}» в REST Countries.` };
-    return { text:`${c.flag || ''} **${c.name.common}** — столица: **${c.capital?.[0] || '—'}**, население: **${c.population?.toLocaleString('ru') || '—'}**.`,
-             src:'REST Countries' };
+    return { text:`${c.flag || ''} **${c.name.common}** — столица: **${c.capital?.[0] || '—'}**, население: **${c.population?.toLocaleString('ru') || '—'}**.`, src:'REST Countries' };
   }catch(e){ return { text:'Не удалось получить данные о стране — проверь интернет.' }; }
 }
-
 const KNOWLEDGE = [
-  { keys:['земля'], text:'Земля — третья планета от Солнца и единственная известная планета с жизнью. Полный оборот вокруг Солнца занимает около 365,25 дня.' },
+  { keys:['земля'], text:'Земля — третья планета от Солнца и единственная известная планета с жизнью. Полный оборот вокруг Солнца — около 365,25 дня.' },
   { keys:['солнце'], text:'Солнце — звезда в центре нашей системы, жёлтый карлик. До него от Земли около 150 млн км, свет идёт примерно 8 минут.' },
-  { keys:['луна'], text:'Луна — единственный естественный спутник Земли, полный оборот вокруг Земли делает примерно за 27,3 дня.' },
+  { keys:['луна'], text:'Луна — единственный естественный спутник Земли, оборот вокруг Земли — примерно 27,3 дня.' },
   { keys:['python'], text:'Python — высокоуровневый язык программирования с простым синтаксисом, широко используется в анализе данных, вебе и автоматизации.' },
-  { keys:['javascript','js '], text:'JavaScript — язык программирования, на котором работает интерактивность в браузере; также используется на сервере через Node.js.' },
-  { keys:['html'], text:'HTML — язык разметки для описания структуры веб-страниц, работает в связке с CSS (стили) и JavaScript (поведение).' },
+  { keys:['javascript','js '], text:'JavaScript — язык программирования для интерактивности в браузере; также используется на сервере через Node.js.' },
+  { keys:['html'], text:'HTML — язык разметки для структуры веб-страниц, работает в связке с CSS и JavaScript.' },
   { keys:['искусственный интеллект',' ии ','^ии$'], text:'Искусственный интеллект — область компьютерных наук, изучающая создание систем, способных решать задачи, обычно требующие человеческого мышления.' },
-  { keys:['интернет'], text:'Интернет — глобальная сеть компьютерных сетей, объединённых общими протоколами передачи данных (TCP/IP).' },
-  { keys:['гравитация'], text:'Гравитация — фундаментальное взаимодействие, притяжение между телами, обладающими массой; описывается законом Ньютона и общей теорией относительности Эйнштейна.' },
-  { keys:['вода'], text:'Вода — химическое соединение с формулой H₂O, состоит из двух атомов водорода и одного атома кислорода.' },
-  { keys:['алгоритм'], text:'Алгоритм — точная последовательность действий для решения задачи или класса задач за конечное число шагов.' },
-  { keys:['скорость света'], text:'Скорость света в вакууме — около 299 792 км/с, это предельная скорость передачи информации во Вселенной.' },
+  { keys:['интернет'], text:'Интернет — глобальная сеть компьютерных сетей, объединённых протоколами передачи данных (TCP/IP).' },
+  { keys:['гравитация'], text:'Гравитация — фундаментальное взаимодействие, притяжение тел, обладающих массой; описывается законом Ньютона и общей теорией относительности.' },
+  { keys:['вода'], text:'Вода — химическое соединение H₂O, два атома водорода и один атом кислорода.' },
+  { keys:['алгоритм'], text:'Алгоритм — точная последовательность действий для решения задачи за конечное число шагов.' },
+  { keys:['скорость света'], text:'Скорость света в вакууме — около 299 792 км/с, предельная скорость передачи информации во Вселенной.' },
   { keys:['казахстан'], text:'Казахстан — государство в Центральной Азии, столица — Астана, крупнейший город — Алматы.' },
 ];
-
 function tryKnowledge(q){
   const lower = q.toLowerCase();
-  for(const item of KNOWLEDGE){
-    if(item.keys.some(k=>lower.includes(k))) return item.text;
-  }
+  for(const item of KNOWLEDGE){ if(item.keys.some(k=>lower.includes(k))) return item.text; }
   return null;
 }
-
 async function tryWiki(q){
   const query = stripQuestionWords(q);
   if(!query) return null;
@@ -519,35 +790,31 @@ async function tryWiki(q){
     return { title, extract: summary.extract, url: summary.content_urls?.desktop?.page };
   }catch(e){ return null; }
 }
-
-const wait = ms => new Promise(r=>setTimeout(r,ms));
+async function webSearchTop3(q){
+  const query = stripQuestionWords(q);
+  try{
+    const data = await fetch(`https://ru.wikipedia.org/w/api.php?action=opensearch&search=${encodeURIComponent(query)}&limit=3&namespace=0&format=json&origin=*`).then(r=>r.json());
+    const [,titles,descs,links] = data;
+    return (titles||[]).map((t,i)=>({title:t, desc:descs[i]||'', url:links[i]}));
+  }catch(e){ return []; }
+}
 
 async function stepsFor(kind, bubble){
   const notes = [];
-  const push = async (text, delay)=>{
-    notes.push(searchNote(text));
-    bubble.innerHTML = notes.join('');
-    if(delay) await wait(delay);
-  };
-
+  const push = async (text, delay)=>{ notes.push(searchNote(text)); bubble.innerHTML = notes.join(''); if(delay) await wait(delay); };
   if(mode === 'weak'){
     if(kind==='wiki'){
-      await push('открываю Википедию…', 450);
-      await push('читаю статью, ищу нужный раздел…', 650);
-      await push('сверяю формулировку и собираю ответ…', 500);
+      await push('открываю Википедию…', 450); await push('читаю статью, ищу нужный раздел…', 650); await push('сверяю формулировку и собираю ответ…', 500);
     } else if(kind==='weather'){
-      await push('подключаюсь к Open‑Meteo…', 400);
-      await push('получаю координаты города…', 500);
-      await push('читаю текущий прогноз…', 450);
+      await push('подключаюсь к Open‑Meteo…', 400); await push('получаю координаты города…', 500); await push('читаю текущий прогноз…', 450);
     } else if(kind==='country'){
-      await push('открываю REST Countries…', 400);
-      await push('собираю данные о стране…', 450);
+      await push('открываю REST Countries…', 400); await push('собираю данные о стране…', 450);
     } else if(kind==='currency'){
-      await push('подключаюсь к Frankfurter (курсы валют)…', 400);
-      await push('получаю актуальный курс…', 400);
+      await push('подключаюсь к Frankfurter (курсы валют)…', 400); await push('получаю актуальный курс…', 400);
     } else if(kind==='mdn'){
-      await push('шаблона нет в библиотеке, иду смотреть MDN…', 400);
-      await push('читаю статью документации…', 500);
+      await push('шаблона нет в библиотеке, иду смотреть MDN…', 400); await push('читаю статью документации…', 500);
+    } else if(kind==='search'){
+      await push('запускаю быстрый поиск по открытым источникам…', 400); await push('собираю топ-3 результата…', 450);
     }
   }
   return notes;
@@ -555,45 +822,29 @@ async function stepsFor(kind, bubble){
 
 async function answer(q, bubble){
   const smalltalk = trySmallTalk(q);
-  if(smalltalk !== null){
-    return { html: smalltalk, notes: [] };
-  }
+  if(smalltalk !== null) return { html: smalltalk, notes: [] };
 
   const math = tryMath(q);
-  if(math !== null){
-    return { html: `Считаю: \`${math.expr}\` = **${math.val}**`, notes: [] };
-  }
+  if(math !== null) return { html: `Считаю: \`${math.expr}\` = **${math.val}**`, notes: [] };
 
   const code = tryCode(q);
   if(code === null){
     const notes = await stepsFor('mdn', bubble);
     const mdn = await tryMdn(q);
-    if(mdn){
-      return { html:`В своей библиотеке шаблона не нашёл, зато нашлась статья на MDN:\n\n**${mdn.title}**\n\n${mdn.summary}`, notes, src:`MDN: ${mdn.title}`, srcUrl: mdn.url };
-    }
+    if(mdn) return { html:`В своей библиотеке шаблона не нашёл, зато нашлась статья на MDN:\n\n**${mdn.title}**\n\n${mdn.summary}`, notes, src:`MDN: ${mdn.title}`, srcUrl: mdn.url };
     return { html:'В библиотеке нет готового шаблона под эту задачу, и на MDN тоже не нашлось точного совпадения. В библиотеке есть: сортировки, бинарный поиск, FizzBuzz, палиндром, числа Фибоначчи, HTTP-запрос и таймер.', notes };
   }
-  if(code !== undefined){
-    return { html: code, notes: [] };
-  }
+  if(code !== undefined) return { html: code, notes: [] };
 
   if(/погод/.test(q.toLowerCase())){
     const notes = await stepsFor('weather', bubble);
     const w = await tryWeather(q);
     return { html: w.text, notes, src: w.src };
   }
-
   const currency = await tryCurrency(q);
-  if(currency){
-    const notes = await stepsFor('currency', bubble);
-    return { html: currency.text, notes, src: currency.src };
-  }
-
+  if(currency){ const notes = await stepsFor('currency', bubble); return { html: currency.text, notes, src: currency.src }; }
   const country = await tryCountry(q);
-  if(country){
-    const notes = await stepsFor('country', bubble);
-    return { html: country.text, notes, src: country.src };
-  }
+  if(country){ const notes = await stepsFor('country', bubble); return { html: country.text, notes, src: country.src }; }
 
   const notes = await stepsFor('wiki', bubble);
   const wiki = await tryWiki(q);
@@ -601,41 +852,151 @@ async function answer(q, bubble){
     const shortExtract = mode==='dream' ? wiki.extract.split('. ').slice(0,1).join('. ')+'.' : wiki.extract;
     return { html: shortExtract, notes, src: wiki.url ? `Wikipedia: ${wiki.title}` : null, srcUrl: wiki.url };
   }
-
   const own = tryKnowledge(q);
-  if(own){
-    return { html: own, notes, src: 'внутренние знания Glory (без интернета)' };
-  }
+  if(own) return { html: own, notes, src: 'внутренние знания Glory (без интернета)' };
 
   return { html:'Точного источника не нашёл — но могу помочь с математикой, кодом, погодой, курсами валют или странами. Сформулируй вопрос конкретнее, и поищу ещё раз.', notes };
 }
 
+/* ============ внешние ИИ-провайдеры (свой ключ пользователя) ============ */
+async function callExternalAI(provider, apiKey, history, signal, searchContext){
+  const styleHint = mode==='weak' ? 'Отвечай обстоятельно и точно, разбирай вопрос глубже.' : 'Отвечай кратко и сразу по делу.';
+  const sys = (searchContext
+    ? `Ты — Glory, полезный ассистент. Используй результаты поиска ниже, если это уместно, и упомяни источники в ответе.\n\nРезультаты поиска:\n${searchContext}\n\n`
+    : 'Ты — Glory, полезный ассистент, умеешь писать код и объяснять.\n\n') + styleHint;
+
+  if(provider === 'anthropic'){
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method:'POST', signal,
+      headers:{ 'Content-Type':'application/json', 'x-api-key':apiKey, 'anthropic-version':'2023-06-01', 'anthropic-dangerous-direct-browser-access':'true' },
+      body: JSON.stringify({ model:'claude-sonnet-4-6', max_tokens:1200, system: sys, messages: history.map(m=>({role:m.role,content:m.content})) })
+    });
+    const data = await res.json();
+    if(data.error) throw new Error(data.error.message || 'Anthropic API error');
+    return (data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('\n');
+  }
+  if(provider === 'openai'){
+    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+      method:'POST', signal,
+      headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer '+apiKey },
+      body: JSON.stringify({ model:'gpt-4o-mini', messages:[{role:'system',content:sys}, ...history.map(m=>({role:m.role,content:m.content}))] })
+    });
+    const data = await res.json();
+    if(data.error) throw new Error(data.error.message || 'OpenAI API error');
+    return data.choices?.[0]?.message?.content || '';
+  }
+  if(provider === 'gemini'){
+    const contents = history.map(m=>({role: m.role==='assistant' ? 'model' : 'user', parts:[{text:m.content}]}));
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+      method:'POST', signal, headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ system_instruction:{parts:[{text:sys}]}, contents })
+    });
+    const data = await res.json();
+    if(data.error) throw new Error(data.error.message || 'Gemini API error');
+    return (data.candidates?.[0]?.content?.parts||[]).map(p=>p.text).join('') || '';
+  }
+  throw new Error('Неизвестный провайдер');
+}
+
+/* ============ печатающийся эффект ============ */
+function typeInto(bubble, text, ctrl, prefixHtml){
+  prefixHtml = prefixHtml || '';
+  return new Promise(resolve=>{
+    let i=0; const step=4;
+    const iv = setInterval(()=>{
+      if(ctrl.aborted){ clearInterval(iv); bubble.innerHTML = prefixHtml + renderMarkdown(text.slice(0,i)) + '<p style="opacity:.55">⏹ остановлено</p>'; highlightAll(bubble); addCopyButtons(bubble); resolve(); return; }
+      i += step;
+      bubble.innerHTML = prefixHtml + renderMarkdown(text.slice(0,i));
+      if(i >= text.length){
+        clearInterval(iv);
+        bubble.innerHTML = prefixHtml + renderMarkdown(text);
+        highlightAll(bubble); addCopyButtons(bubble);
+        resolve();
+      }
+    }, 10);
+  });
+}
+
+/* ============ отправка сообщения ============ */
+function setSendIcon(state){
+  sendBtn.innerHTML = state==='stop' ? ICONS.stop : ICONS.send;
+  sendBtn.classList.toggle('is-stop', state==='stop');
+}
+function handleSendOrStop(){
+  if(busy){ if(activeCtrl){ activeCtrl.aborted = true; try{ activeCtrl.controller.abort(); }catch(e){} } }
+  else { onSend(); }
+}
+
 async function onSend(){
-  if(busy) return;
   const text = inputEl.value.trim();
-  if(!text) return;
-  inputEl.value=''; inputEl.style.height='auto';
-  busy=true; sendBtn.disabled=true;
+  if(!text || busy) return;
+  inputEl.value=''; inputEl.style.height='auto'; localStorage.removeItem(DRAFT_KEY);
+  busy = true; setSendIcon('stop');
+  emptyEl.style.display='none'; showFooterHint();
 
   addMessage('user', `<p>${escapeHtml(text).replace(/\n/g,'<br>')}</p>`);
-  const bubble = addMessage('assistant', '<div class="search-note"><span class="pulse"></span> думаю…</div>');
+  currentMessages.push({role:'user', content:text});
+  persistActiveChat();
+
+  const bubble = addMessage('assistant', searchNote('думаю…'));
+  const ctrl = { aborted:false, controller: new AbortController() };
+  activeCtrl = ctrl;
+
+  const provider = settings.provider;
+  const apiKey = provider ? settings.keys[provider] : '';
+  let notesHtml = '';
 
   try{
-    const res = await answer(text, bubble);
-    let html = res.notes.join('') + renderMarkdown(res.html);
-    if(res.srcUrl){
-      html += `<div class="src">🔗 <a href="${res.srcUrl}" target="_blank" rel="noopener">${escapeHtml(res.src)}</a></div>`;
-    } else if(res.src){
-      html += `<div class="src">🔗 ${escapeHtml(res.src)}</div>`;
+    let finalText, src, srcUrl;
+
+    if(settings.webSearch){
+      bubble.innerHTML = searchNote('запускаю быстрый поиск…');
+      const results = await webSearchTop3(text);
+      if(provider && apiKey){
+        const context = results.map((r,i)=>`${i+1}. ${r.title} — ${r.desc} (${r.url})`).join('\n');
+        bubble.innerHTML = searchNote('нашёл источники, спрашиваю модель…');
+        finalText = await callExternalAI(provider, apiKey, [...currentMessages], ctrl.controller.signal, context);
+        if(results.length) finalText += '\n\n**Источники:**\n' + results.map(r=>`- [${r.title}](${r.url})`).join('\n');
+      } else if(results.length){
+        finalText = results.map(r=>`**${r.title}**\n${r.desc}\n[${r.url}](${r.url})`).join('\n\n');
+        src = 'Wikipedia (быстрый поиск, топ-3)';
+      } else {
+        finalText = 'Ничего не нашёл по этому запросу в открытом поиске.';
+      }
+    } else if(provider && apiKey){
+      finalText = await callExternalAI(provider, apiKey, [...currentMessages], ctrl.controller.signal, null);
+    } else {
+      const res = await answer(text, bubble);
+      finalText = res.html; src = res.src; srcUrl = res.srcUrl; notesHtml = (res.notes||[]).join('');
     }
-    bubble.innerHTML = html;
-    addCopyButtons(bubble);
+
+    bubble.innerHTML = notesHtml;
+    await typeInto(bubble, finalText, ctrl, notesHtml);
+    if(!ctrl.aborted){
+      if(srcUrl) bubble.innerHTML += `<div class="src">🔗 <a href="${srcUrl}" target="_blank" rel="noopener">${escapeHtml(src)}</a></div>`;
+      else if(src) bubble.innerHTML += `<div class="src">🔗 ${escapeHtml(src)}</div>`;
+      currentMessages.push({role:'assistant', content: finalText});
+      persistActiveChat();
+    }
   }catch(e){
-    bubble.innerHTML = `<p style="color:var(--danger)">Сбой: ${escapeHtml(String(e))}</p>`;
+    if(e.name === 'AbortError'){
+      bubble.innerHTML = notesHtml + '<p style="opacity:.6">⏹ Остановлено пользователем.</p>';
+    } else {
+      bubble.innerHTML = notesHtml + `<p style="color:var(--danger)">Сбой: ${escapeHtml(String(e.message||e))}</p>`;
+    }
   }
+  busy=false; setSendIcon('send'); activeCtrl=null;
   chatEl.scrollTop = chatEl.scrollHeight;
-  busy=false; sendBtn.disabled=false; inputEl.focus();
+  inputEl.focus();
 }
+
+/* ============ инициализация ============ */
+if(!tryRenderSharedView()){
+  if(!activeChatId || !chats[activeChatId]) newChat();
+  else loadChat(activeChatId);
+  restoreDraft();
+}
+document.getElementById('searchToggle').classList.toggle('active', settings.webSearch);
 </script>
 </body>
 </html>
