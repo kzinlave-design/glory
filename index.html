@@ -9,8 +9,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/11.1.1/marked.min.js"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.0/dist/mobilenet.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.0/dist/tesseract.min.js"></script>
 <style>
   :root{
     --bg:#0c0d12; --panel:#14161d; --line:#23262f;
@@ -52,8 +51,13 @@
   .side-item:hover{background:var(--bg);}
   .side-item.active{background:var(--bg); color:var(--ink);}
   .side-item-title{overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
-  .side-item-del{background:none; border:none; color:var(--dim); cursor:pointer; opacity:0; font-size:12px; flex-shrink:0;}
-  .side-item:hover .side-item-del{opacity:1;}
+  .side-item-actions{display:flex; align-items:center; gap:2px; flex-shrink:0; opacity:0; transition:.15s;}
+  .side-item:hover .side-item-actions{opacity:1;}
+  .side-item-edit, .side-item-del{background:none; border:none; color:var(--dim); cursor:pointer; font-size:12px;
+    width:22px; height:22px; display:flex; align-items:center; justify-content:center; border-radius:6px; flex-shrink:0;}
+  .side-item-edit svg, .side-item-del svg{width:13px; height:13px;}
+  .side-item-edit:hover{color:var(--ink); background:var(--line);}
+  .side-item-del:hover{color:var(--danger); background:var(--line);}
   .side-empty{color:var(--dim); font-size:12px; padding:10px; text-align:center;}
   .side-settings{display:flex; align-items:center; gap:8px; padding:10px 12px; border-radius:10px;
     border:1px solid transparent; background:transparent; color:var(--dim); font-family:'Inter',sans-serif;
@@ -191,11 +195,45 @@
   .danger-btn{border:none; border-radius:10px; padding:11px; background:var(--danger); color:#fff; font-weight:600;
     font-size:13px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px;}
   .danger-btn svg{width:14px;height:14px;}
+
+  /* ---- анимации (сообщения / сайдбар / модалки) ---- */
+  @keyframes fadeSlideUp{ from{opacity:0; transform:translateY(10px);} to{opacity:1; transform:translateY(0);} }
+  @keyframes modalPop{ from{opacity:0; transform:translateY(14px) scale(.96);} to{opacity:1; transform:translateY(0) scale(1);} }
+  @keyframes overlayFade{ from{opacity:0;} to{opacity:1;} }
+  .msg{ animation:fadeSlideUp .32s cubic-bezier(.16,1,.3,1); }
+  .side-item{ animation:fadeSlideUp .28s cubic-bezier(.16,1,.3,1); }
+  .empty.anim{ animation:fadeSlideUp .4s cubic-bezier(.16,1,.3,1); }
+  .modal-overlay{ opacity:0; visibility:hidden; pointer-events:none; transition:opacity .2s ease, visibility 0s linear .2s; }
+  .modal-overlay.show{ opacity:1; visibility:visible; pointer-events:auto; transition:opacity .2s ease, visibility 0s; }
+  .modal-overlay.show .modal{ animation:modalPop .28s cubic-bezier(.16,1,.3,1); }
+
+  /* ---- офлайн-оверлей ---- */
+  .offline-overlay{position:fixed; inset:0; z-index:300; display:none; align-items:center; justify-content:center;
+    background:rgba(12,13,18,.9); backdrop-filter:blur(4px);}
+  .offline-overlay.show{display:flex; animation:overlayFade .2s ease;}
+  .offline-box{background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:22px 32px;
+    color:var(--ink); font-family:'Inter',sans-serif; font-size:15.5px; font-weight:600; text-align:center;
+    box-shadow:0 20px 50px rgba(0,0,0,.45); animation:modalPop .3s cubic-bezier(.16,1,.3,1);}
+
+  /* ---- адаптив под устройство ---- */
+  @media (max-width:768px){
+    .sidebar{position:fixed; top:0; left:0; bottom:0; z-index:150; box-shadow:0 0 30px rgba(0,0,0,.4); margin-left:0;}
+    .sidebar.collapsed{margin-left:-260px;}
+    header{padding:14px;}
+    main{padding:0 10px;}
+    .bubble{max-width:90%;}
+    .picker-pop{width:230px; right:0;}
+    .send-btn, .composer-row .icon-btn{width:38px; height:38px;}
+  }
 </style>
 </head>
 <body>
 
 <div class="drop-overlay" id="dropOverlay">📎 Отпусти, чтобы прикрепить картинку</div>
+
+<div class="offline-overlay" id="offlineOverlay">
+  <div class="offline-box">😕 Упс.... проблемы с соединением...</div>
+</div>
 
 <div class="app">
   <aside class="sidebar" id="sidebar">
@@ -317,6 +355,7 @@ const ICONS = {
   gear:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>`,
   share:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.6" y1="13.5" x2="15.4" y2="17.5"/><line x1="15.4" y1="6.5" x2="8.6" y2="10.5"/></svg>`,
   close:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`,
+  pencil:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>`,
   trash:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>`,
   sun:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.2" y1="4.2" x2="5.6" y2="5.6"/><line x1="18.4" y1="18.4" x2="19.8" y2="19.8"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.2" y1="19.8" x2="5.6" y2="18.4"/><line x1="18.4" y1="5.6" x2="19.8" y2="4.2"/></svg>`,
   moon:`<svg viewBox="0 0 24 24" fill="currentColor"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>`
@@ -387,7 +426,6 @@ const settingsOverlay = document.getElementById('settingsOverlay');
 const shareOverlay = document.getElementById('shareOverlay');
 let busy = false;
 let activeCtrl = null;
-let netModel = null;
 
 const wait = ms => new Promise(r=>setTimeout(r,ms));
 function searchNote(text){ return `<div class="search-note"><span class="pulse"></span> ${text}</div>`; }
@@ -420,7 +458,10 @@ function renderSidebar(){
   sideList.innerHTML = list.map(c=>`
     <div class="side-item ${c.id===activeChatId?'active':''}" onclick="loadChat('${c.id}')">
       <span class="side-item-title">${escapeHtml(c.title||'Новый чат')}</span>
-      <button class="side-item-del" onclick="event.stopPropagation(); deleteChat('${c.id}')">${ICONS.close}</button>
+      <span class="side-item-actions">
+        <button class="side-item-edit" title="Переименовать" onclick="event.stopPropagation(); renameChat('${c.id}')">${ICONS.pencil}</button>
+        <button class="side-item-del" title="Удалить" onclick="event.stopPropagation(); deleteChat('${c.id}')">${ICONS.trash}</button>
+      </span>
     </div>`).join('') || '<div class="side-empty">Пока пусто</div>';
 }
 
@@ -429,6 +470,7 @@ function resetChatUI(){
   chatEl.appendChild(emptyEl);
   emptyEl.style.display = currentMessages.length ? 'none' : 'flex';
   footerHint.classList.toggle('show', currentMessages.length>0);
+  emptyEl.classList.remove('anim'); void emptyEl.offsetWidth; emptyEl.classList.add('anim');
 }
 
 function newChat(){
@@ -463,6 +505,16 @@ function loadChat(id){
 function deleteChat(id){
   delete chats[id]; saveChats();
   if(id===activeChatId){ newChat(); } else { renderSidebar(); }
+}
+
+function renameChat(id){
+  const current = chats[id]?.title || 'Новый чат';
+  const name = prompt('Новое название чата:', current);
+  if(name === null) return;
+  const trimmed = name.trim();
+  if(!trimmed) return;
+  chats[id].title = trimmed.slice(0,60);
+  saveChats(); renderSidebar();
 }
 
 function clearAllHistory(){
@@ -598,22 +650,7 @@ function geoWeatherFlow(){
   }, err=>{ bubble.innerHTML = 'Вы отклонили, я не смог проверить погоду по вашему гео.'; });
 }
 
-/* ============ распознавание изображений (MobileNet, локально в браузере) ============ */
-const TRANSLATIONS = {
-  'cat':'кошка','tabby':'тигровая кошка','egyptian cat':'египетская кошка','persian cat':'персидская кошка',
-  'dog':'собака','golden retriever':'золотистый ретривер','german shepherd':'немецкая овчарка','pug':'мопс',
-  'laptop':'ноутбук','computer':'компьютер','notebook':'ноутбук','screen':'экран','monitor':'монитор',
-  'mobile phone':'мобильный телефон','cellular telephone':'смартфон','handheld computer':'КПК/смартфон',
-  'mug':'кружка','coffee mug':'кружка для кофе','cup':'чашка','bottle':'бутылка','water bottle':'бутылка для воды',
-  'keyboard':'клавиатура','mouse':'мышка','desk':'стол','chair':'стул','book':'книга','paper':'бумага',
-  'plate':'тарелка','fork':'вилка','knife':'нож','spoon':'ложка','car':'машина','sports car':'спортивная машина',
-  'wheel':'колесо','window':'окно','tree':'дерево','plant':'растение','flower':'цветок','house':'дом',
-  'building':'здание','sunglasses':'солнцезащитные очки','glasses':'очки','t-shirt':'футболка','person':'человек'
-};
-function translateClass(label){
-  const clean = label.toLowerCase().split(',')[0].trim();
-  return TRANSLATIONS[clean] ? `${label} (${TRANSLATIONS[clean]})` : label;
-}
+/* ============ распознавание текста на фото + помощь с домашкой ============ */
 function handleImageUpload(event){
   const file = event.target.files[0];
   if(file) handleImageFile(file);
@@ -624,30 +661,28 @@ async function handleImageFile(file){
   busy = true; setSendIcon('stop'); emptyEl.style.display='none'; showFooterHint();
   const imgUrl = URL.createObjectURL(file);
   addMessage('user', `<p>Отправил изображение:</p><img src="${imgUrl}" class="img-preview" id="uploadedImg">`);
-  const bubble = addMessage('assistant', searchNote('инициализирую нейросеть…'));
-  const notes = [];
-  const pushNote = async (text, delay)=>{ notes.push(searchNote(text)); bubble.innerHTML = notes.join(''); if(delay) await wait(delay); };
+  const bubble = addMessage('assistant', searchNote('распознаю текст на изображении…'));
+  const ctrl = { aborted:false };
   try{
-    const imgEl = document.getElementById('uploadedImg');
-    if(!netModel){
-      await pushNote('Загружаю веса нейросети MobileNet v2 (около 15MB)…', 100);
-      netModel = await mobilenet.load();
-      await pushNote('Нейросетевой модуль успешно инициализирован!', 400);
+    const { data:{ text: rawText } } = await Tesseract.recognize(file, 'rus+eng');
+    const cleanText = rawText.replace(/\s+/g,' ').trim();
+    if(!cleanText){
+      bubble.innerHTML = '<p>Не смог разобрать текст на изображении — попробуй фото почётче или при лучшем освещении.</p>';
+    } else {
+      const preview = cleanText.length>140 ? cleanText.slice(0,140)+'…' : cleanText;
+      bubble.innerHTML = searchNote(`распознал текст: «${escapeHtml(preview)}», ищу ответ на открытых источниках…`);
+      const res = await answer(cleanText, bubble);
+      const notesHtml = (res.notes||[]).join('');
+      bubble.innerHTML = notesHtml;
+      await typeInto(bubble, res.html, ctrl, notesHtml);
+      if(res.srcUrl) bubble.innerHTML += `<div class="src">🔗 <a href="${res.srcUrl}" target="_blank" rel="noopener">${escapeHtml(res.src)}</a></div>`;
+      else if(res.src) bubble.innerHTML += `<div class="src">🔗 ${escapeHtml(res.src)}</div>`;
+      currentMessages.push({role:'user', content:'[изображение] '+cleanText});
+      currentMessages.push({role:'assistant', content: res.html});
+      persistActiveChat();
     }
-    await pushNote('Сканирую пиксели изображения…', 350);
-    await pushNote('Провожу классификацию объектов…', 400);
-    const predictions = await netModel.classify(imgEl);
-    let html = notes.join('') + `<p>Распознал на изображении:</p><ul>`;
-    predictions.forEach(p=>{
-      html += `<li><strong>${translateClass(p.className)}</strong> — уверенность <code>${(p.probability*100).toFixed(1)}%</code></li>`;
-    });
-    html += `</ul><p style="opacity:.7;font-size:12.5px">Распознавание выполнено локально в браузере через TensorFlow.js, без отправки картинки куда-либо.</p>`;
-    bubble.innerHTML = html;
-    currentMessages.push({role:'user', content:'[изображение]'});
-    currentMessages.push({role:'assistant', content: predictions.map(p=>translateClass(p.className)).join(', ')});
-    persistActiveChat();
   }catch(err){
-    bubble.innerHTML = `<p style="color:var(--danger)">Не удалось распознать изображение: ${escapeHtml(String(err))}</p>`;
+    bubble.innerHTML = `<p style="color:var(--danger)">Не удалось распознать изображение: ${escapeHtml(String(err.message||err))}</p>`;
   }
   chatEl.scrollTop = chatEl.scrollHeight;
   busy = false; setSendIcon('send'); inputEl.focus();
@@ -725,7 +760,7 @@ const SMALLTALK = [
   { re:/^(спасибо|благодарю|спс|thx|thanks)/i, replies:['Пожалуйста!','Обращайся в любое время.'] },
   { re:/^(пока|до свидания|бай|увидимся)/i, replies:['Пока! Возвращайся, если что-то понадобится.'] },
   { re:/кто\s+ты|ты\s+кто|представься/i,
-    replies:['Я Glory — умею считать, знаю немного кода, распознаю изображения через нейросеть MobileNet и хожу за фактами по открытым API. А если в настройках подключить ключ Claude/ChatGPT/Gemini — отвечаю умнее.'] },
+    replies:['Я Glory — умею считать, знаю немного кода, распознаю текст на фото и помогаю с домашкой, хожу за фактами по открытым API. А если в настройках подключить ключ Claude/ChatGPT/Gemini — отвечаю умнее.'] },
 ];
 function trySmallTalk(q){
   const trimmed = q.trim();
@@ -740,10 +775,11 @@ async function tryCurrency(q){
   if(found.length < 2) return { text:'Уточни пару валют, например: «курс доллара к тенге».' };
   const [from, to] = [map[found[0]], map[found[1]]];
   try{
-    const data = await fetch(`https://api.frankfurter.app/latest?from=${from}&to=${to}`).then(r=>r.json());
+    const data = await fetch(`https://open.er-api.com/v6/latest/${from}`).then(r=>r.json());
+    if(data.result !== 'success' || !data.rates) throw new Error('bad response');
     const rate = data.rates[to];
-    if(!rate) return { text:'Frankfurter не поддерживает эту пару (только основные мировые валюты, тенге туда не входит).' };
-    return { text:`1 **${from}** = **${rate} ${to}** (курс ЕЦБ на сегодня).`, src:'Frankfurter.app (курсы ЕЦБ)' };
+    if(!rate) return { text:`Не нашёл курс ${from} → ${to} в открытых источниках.` };
+    return { text:`1 **${from}** = **${(+rate).toFixed(2)} ${to}** (курс на сегодня).`, src:'open.er-api.com (курсы валют)' };
   }catch(e){ return { text:'Не удалось получить курс — проверь интернет.' }; }
 }
 async function tryCountry(q){
@@ -810,7 +846,7 @@ async function stepsFor(kind, bubble){
     } else if(kind==='country'){
       await push('открываю REST Countries…', 400); await push('собираю данные о стране…', 450);
     } else if(kind==='currency'){
-      await push('подключаюсь к Frankfurter (курсы валют)…', 400); await push('получаю актуальный курс…', 400);
+      await push('подключаюсь к сервису курсов валют…', 400); await push('получаю актуальный курс…', 400);
     } else if(kind==='mdn'){
       await push('шаблона нет в библиотеке, иду смотреть MDN…', 400); await push('читаю статью документации…', 500);
     } else if(kind==='search'){
@@ -989,6 +1025,19 @@ async function onSend(){
   chatEl.scrollTop = chatEl.scrollHeight;
   inputEl.focus();
 }
+
+/* ============ статус соединения ============ */
+const offlineOverlay = document.getElementById('offlineOverlay');
+function updateOnlineStatus(){ offlineOverlay.classList.toggle('show', !navigator.onLine); }
+window.addEventListener('online', updateOnlineStatus);
+window.addEventListener('offline', updateOnlineStatus);
+updateOnlineStatus();
+
+/* ============ адаптация под устройство (пк / телефон) ============ */
+function isMobileDevice(){
+  return window.matchMedia('(max-width:768px)').matches || /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+}
+if(isMobileDevice()) sidebarEl.classList.add('collapsed');
 
 /* ============ инициализация ============ */
 if(!tryRenderSharedView()){
