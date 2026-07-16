@@ -7,6 +7,10 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/11.1.1/marked.min.js"></script>
+
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.0/dist/mobilenet.min.js"></script>
+
 <style>
   :root{
     --bg:#0c0d12; --panel:#14161d; --line:#23262f;
@@ -80,12 +84,18 @@
   textarea{flex:1; resize:none; background:transparent; border:none; outline:none; color:var(--ink);
     font-family:'Inter',sans-serif; font-size:14.5px; line-height:1.5; max-height:160px; padding:6px 0;}
   textarea::placeholder{color:#5b5d68;}
+  
+  /* Кнопка загрузки картинки */
+  .upload-btn{width:38px; height:38px; border-radius:11px; border:1px solid var(--line); background:var(--bg); 
+    color:var(--dim); font-size:16px; display:flex; align-items:center; justify-content:center; cursor:pointer; transition:.2s; margin-bottom:1px;}
+  .upload-btn:hover{border-color:var(--accent); color:var(--ink);}
+
   .send-btn{width:38px; height:38px; border-radius:11px; border:none; cursor:pointer; flex-shrink:0;
     background:linear-gradient(135deg,var(--accent),transparent); color:#fff; font-size:16px;
     display:flex; align-items:center; justify-content:center; transition:.2s;}
   .send-btn:disabled{opacity:.4; cursor:not-allowed;}
 
-  /* ---- mode picker, styled after the Claude model-picker popover ---- */
+  /* ---- mode picker ---- */
   .picker-bar{display:flex; justify-content:flex-end; padding:0 4px 18px; position:relative;}
   .picker-btn{display:flex; align-items:center; gap:6px; background:var(--panel); border:1px solid var(--line);
     color:var(--ink); font-family:'Inter',sans-serif; font-size:12.5px; font-weight:600;
@@ -110,6 +120,7 @@
   .picker-footer{display:flex; align-items:center; justify-content:space-between; padding:9px 12px; font-size:12.5px; color:#7c7d85;}
 
   .hint{font-size:11px; color:#54565f; text-align:center; padding-bottom:20px; font-family:'IBM Plex Mono',monospace;}
+  .img-preview {max-width: 250px; border-radius: 8px; margin-top: 8px; border: 1px solid var(--line); display: block;}
 </style>
 </head>
 <body>
@@ -127,10 +138,8 @@
       <p id="introLine"></p>
       <div class="chips">
         <div class="chip" onclick="fillAndSend('привет')">👋 Привет</div>
-        <div class="chip" onclick="fillAndSend('сортировка пузырьком на python')">🧑‍💻 Сортировка пузырьком</div>
-        <div class="chip" onclick="fillAndSend('погода в Алматы')">🌤️ Погода в Алматы</div>
-        <div class="chip" onclick="fillAndSend('столица Казахстана')">🌍 Столица Казахстана</div>
-        <div class="chip" onclick="fillAndSend('курс доллара к тенге')">💱 Курс доллара к тенге</div>
+        <div class="chip" onclick="geoWeatherFlow()">📍 Погода по гео</div>
+        <div class="chip" onclick="fillAndSend('курс доллара к тенге')">💱 Курс доллара</div>
       </div>
     </div>
   </div>
@@ -151,17 +160,19 @@
         <span class="check" id="check-dream" style="visibility:hidden">✓</span>
       </div>
       <div class="picker-divider"></div>
-      <div class="picker-footer"><span>Источники</span><span>Wiki · Meteo · Countries · FX</span></div>
+      <div class="picker-footer"><span>Источники</span><span>Vision · Wiki · Meteo · FX</span></div>
     </div>
   </div>
 
   <div class="composer-row">
     <form id="form" onsubmit="return false;">
-      <textarea id="input" placeholder="Спроси что угодно…" rows="1"></textarea>
+      <input type="file" id="imageInput" accept="image/*" style="display:none" onchange="handleImageUpload(event)">
+      <button type="button" class="upload-btn" title="Загрузить изображение" onclick="document.getElementById('imageInput').click()">🖼️</button>
+      <textarea id="input" placeholder="Спроси что угодно или отправь картинку…" rows="1"></textarea>
       <button class="send-btn" id="sendBtn" onclick="onSend()">➤</button>
     </form>
   </div>
-  <div class="hint">Enter — отправить · Shift+Enter — новая строка · работает без ключей, нужен только интернет</div>
+  <div class="hint">Glory - ИИ. Он может ошибаться.</div>
 </main>
 
 <script>
@@ -200,6 +211,7 @@ const inputEl = document.getElementById('input');
 const emptyEl = document.getElementById('empty');
 const sendBtn = document.getElementById('sendBtn');
 let busy = false;
+let netModel = null; // Переменная для хранения загруженной модели MobileNet
 
 inputEl.addEventListener('input', ()=>{ inputEl.style.height='auto'; inputEl.style.height=Math.min(inputEl.scrollHeight,160)+'px'; });
 inputEl.addEventListener('keydown', e=>{ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); onSend(); } });
@@ -222,6 +234,125 @@ function addMessage(role, html){
   return wrap.querySelector('.bubble');
 }
 function searchNote(text){ return `<div class="search-note"><span class="pulse"></span> ${text}</div>`; }
+
+/* ============ погода по геолокации браузера ============ */
+function geoWeatherFlow(){
+  if(busy) return;
+  emptyEl.style.display='none';
+  addMessage('user', '<p>📍 Погода по геолокации</p>');
+  const bubble = addMessage('assistant', searchNote('запрашиваю доступ к местоположению…'));
+
+  if(!('geolocation' in navigator)){
+    bubble.innerHTML = 'Этот браузер не поддерживает геолокацию.';
+    return;
+  }
+
+  navigator.geolocation.getCurrentPosition(async pos=>{
+    const {latitude, longitude} = pos.coords;
+    bubble.innerHTML = searchNote('доступ получен, читаю прогноз по координатам…');
+    try{
+      const w = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current_weather=true`).then(r=>r.json());
+      const cw = w.current_weather;
+      let place = 'вашей локации';
+      try{
+        const geo = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=ru`).then(r=>r.json());
+        place = geo.city || geo.locality || geo.principalSubdivision || place;
+      }catch(e){}
+      bubble.innerHTML = renderMarkdown(`Погода в **${place}** сейчас: **${cw.temperature}°C**, ветер ${cw.windspeed} км/ч.`) +
+        `<div class="src">🔗 Open‑Meteo (по геолокации)</div>`;
+      addCopyButtons(bubble);
+    }catch(e){
+      bubble.innerHTML = 'Не удалось получить погоду по геолокации — проверь интернет-соединение.';
+    }
+  }, err=>{
+    bubble.innerHTML = 'Вы отклонили, я не смог проверить погоду по вашему гео.';
+  });
+}
+
+/* ============ Translation Helper for Common Objects ============ */
+const TRANSLATIONS = {
+  'cat': 'кошка', 'tabby': 'тигровая кошка', 'egyptian cat': 'египетская кошка', 'persian cat': 'персидская кошка',
+  'dog': 'собака', 'golden retriever': 'золотистый ретривер', 'german shepherd': 'немецкая овчарка', 'pug': 'мопс',
+  'laptop': 'ноутбук', 'computer': 'компьютер', 'notebook': 'ноутбук', 'screen': 'экран', 'monitor': 'монитор',
+  'mobile phone': 'мобильный телефон', 'cellular telephone': 'смартфон', 'handheld computer': 'КПК/смартфон',
+  'mug': 'кружка', 'coffee mug': 'кружка для кофе', 'cup': 'чашка', 'bottle': 'бутылка', 'water bottle': 'бутылка для воды',
+  'keyboard': 'клавиатура', 'mouse': 'мышка', 'desk': 'стол', 'chair': 'стул', 'book': 'книга', 'paper': 'бумага',
+  'plate': 'тарелка', 'fork': 'вилка', 'knife': 'нож', 'spoon': 'ложка', 'car': 'машина', 'sports car': 'спортивная машина',
+  'wheel': 'колесо', 'window': 'окно', 'tree': 'дерево', 'plant': 'растение', 'flower': 'цветок', 'house': 'дом',
+  'building': 'здание', 'sunglasses': 'солнцезащитные очки', 'glasses': 'очки', 't-shirt': 'футболка', 'person': 'человек'
+};
+
+function translateClass(label) {
+  const clean = label.toLowerCase().split(',')[0].trim();
+  return TRANSLATIONS[clean] ? `${label} (${TRANSLATIONS[clean]})` : label;
+}
+
+/* ============ Обработка картинок (Нейросетевое зрение) ============ */
+async function handleImageUpload(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  busy = true;
+  sendBtn.disabled = true;
+  emptyEl.style.display = 'none';
+
+  // Создаем URL изображения
+  const imgUrl = URL.createObjectURL(file);
+
+  // Отображаем изображение от пользователя в чате
+  addMessage('user', `
+    <p>Отправил изображение:</p>
+    <img src="${imgUrl}" class="img-preview" id="uploadedImg">
+  `);
+
+  const bubble = addMessage('assistant', '<div class="search-note"><span class="pulse"></span> инициализирую нейросеть...</div>');
+  const notes = [];
+  const pushNote = async (text, delay) => {
+    notes.push(searchNote(text));
+    bubble.innerHTML = notes.join('');
+    if (delay) await wait(delay);
+  };
+
+  try {
+    const imgEl = document.getElementById('uploadedImg');
+
+    // Шаг 1: Загрузка модели (если еще не загружена)
+    if (!netModel) {
+      await pushNote('Загружаю веса нейросети MobileNet v2 (около 15MB)...', 100);
+      netModel = await mobilenet.load();
+      await pushNote('Нейросетевой модуль ИИ успешно инициализирован!', 500);
+    }
+
+    // Шаг 2: Сканирование/Распознавание
+    await pushNote('Сканирую пиксели изображения...', 400);
+    await pushNote('Провожу классификацию объектов (Image Classification)...', 500);
+
+    // Вызов инференса MobileNet
+    const predictions = await netModel.classify(imgEl);
+
+    // Шаг 3: Вывод результатов
+    let html = notes.join('');
+    html += `<p>Я проанализировал изображение и вот что мне удалось распознать с высокой вероятностью:</p><ul>`;
+    predictions.forEach((p, idx) => {
+      const percentage = (p.probability * 100).toFixed(1);
+      const translated = translateClass(p.className);
+      html += `<li><strong>${translated}</strong> — с уверенностью <code>${percentage}%</code></li>`;
+    });
+    html += `</ul><p>Это локальное распознавание, запущенное прямо в вашем браузере через движок TensorFlow.js.</p>`;
+
+    bubble.innerHTML = html;
+
+  } catch (error) {
+    bubble.innerHTML = `<p style="color:var(--danger)">Не удалось распознать изображение: ${escapeHtml(String(error))}</p>`;
+  }
+
+  // Сброс поля выбора файла, чтобы можно было загрузить ту же картинку заново
+  event.target.value = '';
+  chatEl.scrollTop = chatEl.scrollHeight;
+  busy = false;
+  sendBtn.disabled = false;
+  inputEl.focus();
+}
 
 /* ============ tiny "brain": routes the query without calling any AI model ============ */
 
@@ -271,8 +402,8 @@ function tryCode(q){
       return `**${item.title}**\n\n\`\`\`${item.lang}\n${item.code}\n\`\`\``;
     }
   }
-  if(wantsCode) return null; // просили код, темы нет в библиотеке — пойдём искать на MDN
-  return undefined; // код вообще не просили
+  if(wantsCode) return null; 
+  return undefined; 
 }
 
 async function tryMdn(q){
@@ -304,7 +435,7 @@ async function tryWeather(q){
 
 const SMALLTALK = [
   { re:/^(привет|здравствуй|здравствуйте|хай|йо|ку|салам|салем)[!.\s]*$/i,
-    replies:['Привет! Как дела? Спрашивай что угодно — посчитаю, напишу код или поищу факт.','Привет-привет! Чем помочь?'] },
+    replies:['Привет! Как дела? Спрашивай что угодно — посчитаю, напишу код, поищу факт или отправь мне картинку!','Привет-привет! Чем помочь? Можешь прислать мне изображение через кнопку 🖼️.'] },
   { re:/как\s+дела/i,
     replies:['Да я что — просто скрипт, но бегаю бодро) А у тебя как дела?','Всё стабильно, бегаю по открытым API без единого сбоя. А у тебя как?'] },
   { re:/^(спасибо|благодарю|спс|thx|thanks)/i,
@@ -312,7 +443,7 @@ const SMALLTALK = [
   { re:/^(пока|до свидания|бай|увидимся)/i,
     replies:['Пока! Возвращайся, если что-то понадобится.'] },
   { re:/кто\s+ты|ты\s+кто|представься/i,
-    replies:['Я Glory — статичный скрипт-помощник без ИИ-моделей: считаю, знаю немного кода и хожу за фактами по открытым API (Википедия, Open‑Meteo, REST Countries, Frankfurter).'] },
+    replies:['Я Glory — статичный скрипт-помощник: считаю, знаю немного кода, распознаю изображения через нейросеть MobileNet и хожу за фактами по открытым API (Википедия, Open‑Meteo, REST Countries, Frankfurter).'] },
 ];
 
 function trySmallTalk(q){
@@ -391,7 +522,6 @@ async function tryWiki(q){
 
 const wait = ms => new Promise(r=>setTimeout(r,ms));
 
-/* Weak: показывает по шагам, как "читает интернет". Dream: сразу выхватывает нужную строку. */
 async function stepsFor(kind, bubble){
   const notes = [];
   const push = async (text, delay)=>{
