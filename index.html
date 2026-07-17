@@ -345,6 +345,31 @@
   <div class="offline-box">😕 Упс.... проблемы с соединением...</div>
 </div>
 
+<div class="modal-overlay" id="onboardOverlay" style="z-index:500;">
+  <div class="modal" style="max-width:380px;">
+    <div class="modal-body" style="padding:32px 26px 28px; text-align:center;">
+      <div style="font-family:'Fraunces',serif; font-weight:700; font-size:26px; color:var(--logo-green); letter-spacing:.5px;
+        text-shadow:0 0 6px rgba(57,255,138,.55), 0 0 16px rgba(57,255,138,.3); margin-bottom:18px;">GLORY</div>
+
+      <div id="onboardStep1">
+        <p style="color:var(--dim); font-size:13.5px; margin:0 0 12px; text-align:left;">Для начала — на какую почту тебе писать?</p>
+        <input id="onboardEmail" type="email" placeholder="you@example.com" autocomplete="email"
+          onkeydown="if(event.key==='Enter'){event.preventDefault(); onboardNextStep();}">
+        <p id="onboardEmailErr" style="color:var(--danger); font-size:12px; min-height:16px; margin:6px 0 0; text-align:left;"></p>
+        <button class="danger-btn" style="background:var(--accent); margin-top:8px;" onclick="onboardNextStep()">Далее</button>
+      </div>
+
+      <div id="onboardStep2" style="display:none;">
+        <p style="color:var(--dim); font-size:13.5px; margin:0 0 12px; text-align:left;">И как к тебе обращаться?</p>
+        <input id="onboardName" type="text" placeholder="Твоё имя" autocomplete="given-name"
+          onkeydown="if(event.key==='Enter'){event.preventDefault(); onboardFinish();}">
+        <p id="onboardNameErr" style="color:var(--danger); font-size:12px; min-height:16px; margin:6px 0 0; text-align:left;"></p>
+        <button class="danger-btn" style="background:var(--accent); margin-top:8px;" onclick="onboardFinish()">Начать</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="app">
   <aside class="sidebar" id="sidebar">
     <button class="side-newchat" onclick="newChat()"></button>
@@ -369,7 +394,7 @@
           <div class="chips">
             <div class="chip" onclick="fillAndSend('привет')">👋 Привет</div>
             <div class="chip" onclick="geoWeatherFlow()">📍 Погода по гео</div>
-            <div class="chip" onclick="fillAndSend('курс доллара к тенге')">💱 Курс доллара</div>
+            <div class="chip" onclick="fillAndSend('переведи 10 км в мили')">📏 Конвертер единиц</div>
           </div>
         </div>
       </div>
@@ -412,7 +437,7 @@
               </div>
             </div>
           </div>
-          <button type="button" class="icon-btn" id="cameraBtn" title="Сделать фото" style="display:none" onclick="document.getElementById('cameraInput').click()"></button>
+          <button type="button" class="icon-btn" id="cameraBtn" title="Камера (QR/штрихкод и фото)" onclick="startCameraOrFallback()"></button>
           <input type="file" id="cameraInput" accept="image/*" capture="environment" style="display:none" onchange="handleImageUpload(event)">
           <button type="button" class="icon-btn" id="micBtn" title="Голосовой ввод" onclick="toggleMic()"></button>
           <button type="button" class="icon-btn" id="searchToggle" title="Поиск в сети" onclick="toggleWebSearch()"></button>
@@ -447,6 +472,11 @@
         </div>
       </div>
       <p class="settings-note">Полезно для людей с чувствительностью к миганию — отключает мигающие анимации лого и плейсхолдера.</p>
+      <div class="settings-row">
+        <span>Имя</span>
+        <input id="settingsName" style="width:140px; padding:8px 10px;" placeholder="Твоё имя"
+          onchange="const d=loadOnboard()||{}; d.name=this.value.trim()||d.name; saveOnboard(d); applyUserName();">
+      </div>
       <div class="settings-row">
         <span>Закладки</span>
         <button class="side-settings" style="padding:6px 10px" onclick="openBookmarks()">Открыть (<span id="bmCount">0</span>)</button>
@@ -487,6 +517,27 @@
       <p class="settings-note">Весь диалог закодирован прямо в ссылке (без сервера) — открывший её увидит чат в режиме чтения. Для очень длинных чатов ссылка будет длинной.</p>
       <input id="shareLink" readonly onclick="this.select()">
       <button class="danger-btn" style="background:var(--accent)" onclick="copyShareLink()">Скопировать ссылку</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="cameraOverlay">
+  <div class="modal" style="max-width:480px; overflow:visible;">
+    <div class="modal-head"><h3>Камера</h3><button class="icon-btn" onclick="closeCameraModal()"></button></div>
+    <div class="modal-body" style="padding:14px 14px 18px;">
+      <div class="seg-toggle" style="align-self:center;">
+        <button id="camModeQr" class="active" onclick="setCameraMode('qr')">🔳 QR / штрихкод</button>
+        <button id="camModePhoto" onclick="setCameraMode('photo')">📷 Фото</button>
+      </div>
+      <div style="position:relative; border-radius:14px; overflow:hidden; background:#000; aspect-ratio:4/3;">
+        <video id="cameraVideo" playsinline autoplay muted style="width:100%; height:100%; object-fit:cover; display:block;"></video>
+        <div id="camScanBox" style="position:absolute; inset:14%; border:2px solid var(--accent); border-radius:14px; box-shadow:0 0 0 999px rgba(0,0,0,.28); pointer-events:none;"></div>
+        <button class="icon-btn" id="camFlipBtn" title="Сменить камеру" onclick="switchCameraFacing()"
+          style="position:absolute; top:8px; right:8px; background:rgba(20,22,29,.7); border-color:rgba(255,255,255,.2);">⟳</button>
+      </div>
+      <canvas id="cameraCanvas" style="display:none;"></canvas>
+      <p id="cameraStatus" style="color:var(--dim); font-size:12.5px; text-align:center; margin:2px 0 0;">Наведи камеру на QR-код или штрихкод…</p>
+      <button id="shutterBtn" class="danger-btn" style="display:none; background:var(--accent);" onclick="takePhoto()">Сделать фото</button>
     </div>
   </div>
 </div>
@@ -627,6 +678,52 @@ function setMode(m){
 setMode('dream');
 
 const INTRO_LINES = ['Ваш ход.', 'Жду ваш запрос.', 'Начинайте.'];
+/* ============ онбординг: почта → имя ============ */
+const ONBOARD_KEY = 'glory_onboard_v1';
+function loadOnboard(){ try{ return JSON.parse(localStorage.getItem(ONBOARD_KEY)) || null; }catch(e){ return null; } }
+function saveOnboard(data){ localStorage.setItem(ONBOARD_KEY, JSON.stringify(data)); }
+function applyUserName(){
+  const data = loadOnboard();
+  const name = data && data.name;
+  if(name){
+    INTRO_LINES.length = 0;
+    INTRO_LINES.push(`Ваш ход, ${name}.`, `Жду ваш запрос, ${name}.`, `Начинайте, ${name}.`, `${name}, чем займёмся?`);
+  }
+  const introEl = document.getElementById('introLine');
+  if(introEl) introEl.textContent = INTRO_LINES[Math.floor(Math.random()*INTRO_LINES.length)];
+}
+function onboardNextStep(){
+  const emailInput = document.getElementById('onboardEmail');
+  const err = document.getElementById('onboardEmailErr');
+  const email = emailInput.value.trim();
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ err.textContent = 'Похоже, это не почта — проверь адрес.'; emailInput.focus(); return; }
+  err.textContent = '';
+  saveOnboard({ email });
+  document.getElementById('onboardStep1').style.display = 'none';
+  document.getElementById('onboardStep2').style.display = 'block';
+  document.getElementById('onboardName').focus();
+}
+function onboardFinish(){
+  const nameInput = document.getElementById('onboardName');
+  const err = document.getElementById('onboardNameErr');
+  const name = nameInput.value.trim();
+  if(!name){ err.textContent = 'Напиши, как к тебе обращаться.'; nameInput.focus(); return; }
+  err.textContent = '';
+  const data = loadOnboard() || {};
+  data.name = name;
+  saveOnboard(data);
+  document.getElementById('onboardOverlay').classList.remove('show');
+  applyUserName();
+}
+(function initOnboard(){
+  const data = loadOnboard();
+  if(!data || !data.name){
+    document.getElementById('onboardOverlay').classList.add('show');
+  } else {
+    applyUserName();
+  }
+})();
+
 document.getElementById('introLine').textContent = INTRO_LINES[Math.floor(Math.random()*INTRO_LINES.length)];
 
 /* ============ база: DOM / утилиты ============ */
@@ -873,6 +970,8 @@ function setTheme(t){
   settings.theme=t; document.documentElement.setAttribute('data-theme', t); saveSettings(); updateThemeButtons();
 }
 function openSettings(){
+  const ob = loadOnboard();
+  document.getElementById('settingsName').value = (ob && ob.name) || '';
   document.getElementById('providerSelect').value = settings.provider;
   document.getElementById('keyAnthropic').value = settings.keys.anthropic;
   document.getElementById('keyOpenai').value = settings.keys.openai;
@@ -1024,6 +1123,113 @@ function handleImageUpload(event){
   const file = event.target.files[0];
   if(file) handleImageFile(file);
   event.target.value = '';
+}
+
+/* ============ живая камера: сканер QR/штрихкодов + фото ============ */
+let cameraStream = null;
+let cameraMode = 'qr';
+let qrScanning = false;
+let qrRAF = null;
+let currentFacing = 'environment';
+
+function startCameraOrFallback(){
+  if(navigator.mediaDevices && navigator.mediaDevices.getUserMedia){ openCameraModal(); }
+  else { document.getElementById('cameraInput').click(); }
+}
+async function openCameraModal(){
+  document.getElementById('cameraOverlay').classList.add('show');
+  setCameraMode('qr');
+  await startCameraStream();
+}
+async function startCameraStream(){
+  stopCameraTracks();
+  const video = document.getElementById('cameraVideo');
+  const statusEl = document.getElementById('cameraStatus');
+  try{
+    cameraStream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode: currentFacing }, audio:false });
+    video.srcObject = cameraStream;
+    await video.play();
+    if(cameraMode === 'qr') startQrScan();
+  }catch(e){
+    statusEl.textContent = 'Не удалось включить камеру — проверь разрешение в браузере (значок замка рядом с адресом сайта).';
+  }
+}
+function stopCameraTracks(){
+  qrScanning = false;
+  if(qrRAF){ cancelAnimationFrame(qrRAF); qrRAF = null; }
+  if(cameraStream){ cameraStream.getTracks().forEach(t=>t.stop()); cameraStream = null; }
+}
+function closeCameraModal(){
+  stopCameraTracks();
+  document.getElementById('cameraOverlay').classList.remove('show');
+}
+function setCameraMode(mode){
+  cameraMode = mode;
+  document.getElementById('camModeQr').classList.toggle('active', mode==='qr');
+  document.getElementById('camModePhoto').classList.toggle('active', mode==='photo');
+  document.getElementById('shutterBtn').style.display = mode==='photo' ? 'block' : 'none';
+  document.getElementById('camScanBox').style.display = mode==='qr' ? 'block' : 'none';
+  document.getElementById('cameraStatus').textContent = mode==='qr'
+    ? 'Наведи камеру на QR-код или штрихкод — считаю сам.'
+    : 'Наведи камеру и нажми «Сделать фото».';
+  qrScanning = false;
+  if(qrRAF){ cancelAnimationFrame(qrRAF); qrRAF = null; }
+  if(mode === 'qr' && cameraStream) startQrScan();
+}
+async function startQrScan(){
+  if(!('BarcodeDetector' in window)){
+    document.getElementById('cameraStatus').textContent = 'Этот браузер не умеет сканировать QR в реальном времени — сделай фото, и я найду код на снимке.';
+    return;
+  }
+  qrScanning = true;
+  const video = document.getElementById('cameraVideo');
+  let detector;
+  try{
+    const formats = await window.BarcodeDetector.getSupportedFormats();
+    detector = new window.BarcodeDetector({ formats });
+  }catch(e){ detector = new window.BarcodeDetector(); }
+  const loop = async ()=>{
+    if(!qrScanning) return;
+    try{
+      if(video.readyState >= 2){
+        const codes = await detector.detect(video);
+        if(codes && codes.length){ qrScanning = false; handleScannedCodes(codes); return; }
+      }
+    }catch(e){}
+    qrRAF = requestAnimationFrame(loop);
+  };
+  qrRAF = requestAnimationFrame(loop);
+}
+function handleScannedCodes(codes){
+  closeCameraModal();
+  const list = codes.map(c=>{
+    const val = c.rawValue || '';
+    const isLink = /^https?:\/\//i.test(val);
+    return `- **${c.format || 'код'}**: ${isLink ? `[${escapeHtml(val)}](${val})` : escapeHtml(val)}`;
+  }).join('\n');
+  const html = `Считал ${codes.length>1?'коды':'код'} с камеры:\n\n${list}`;
+  addMessage('user', '<p>📷 Скан с камеры (QR/штрихкод)</p>');
+  const bubble = addMessage('assistant', '');
+  bubble.innerHTML = renderMarkdown(html);
+  highlightAll(bubble); addCopyButtons(bubble);
+  currentMessages.push({role:'user', content:'[скан QR/штрихкода с камеры]'});
+  currentMessages.push({role:'assistant', content: html});
+  persistActiveChat();
+  chatEl.scrollTo({top:chatEl.scrollHeight, behavior:'smooth'});
+}
+function takePhoto(){
+  const video = document.getElementById('cameraVideo');
+  const canvas = document.getElementById('cameraCanvas');
+  canvas.width = video.videoWidth || 1280; canvas.height = video.videoHeight || 960;
+  canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+  canvas.toBlob(blob=>{
+    closeCameraModal();
+    if(blob) handleImageFile(blob);
+  }, 'image/jpeg', 0.92);
+}
+function switchCameraFacing(){
+  currentFacing = currentFacing === 'environment' ? 'user' : 'environment';
+  startCameraStream();
 }
 function withTimeout(promise, ms){
   return Promise.race([
@@ -1269,6 +1475,29 @@ async function tryCurrency(q){
     return { text:`1 **${from}** = **${(+rate).toFixed(2)} ${to}** (курс на сегодня).`, src:'open.er-api.com (курсы валют)' };
   }catch(e){ return { text:'Не удалось получить курс — проверь интернет.' }; }
 }
+function tryUnits(q){
+  const lower = q.toLowerCase().replace(',', '.');
+  const m = lower.match(/(-?\d+(?:\.\d+)?)\s*(километр\w*|км\b|km\b|миль\w*|миля\w*|mile\w*|mi\b|килограмм\w*|кг\b|kg\b|фунт\w*|lb\w*|lbs\b)\s*(?:в|to|=|->|→)\s*(километр\w*|км\b|km\b|миль\w*|миля\w*|mile\w*|mi\b|килограмм\w*|кг\b|kg\b|фунт\w*|lb\w*|lbs\b)/);
+  if(!m) return null;
+  const norm = u => {
+    if(/^(километр|км|km)/.test(u)) return 'km';
+    if(/^(миль|миля|mile|mi)/.test(u)) return 'mi';
+    if(/^(килограмм|кг|kg)/.test(u)) return 'kg';
+    if(/^(фунт|lb)/.test(u)) return 'lb';
+    return null;
+  };
+  const from = norm(m[2]), to = norm(m[3]);
+  const num = parseFloat(m[1]);
+  if(!from || !to || isNaN(num)) return null;
+  const names = {km:'км', mi:'миль', kg:'кг', lb:'фунтов'};
+  if(from === to) return { text:`${num} ${names[from]} — тут и переводить нечего, это те же единицы 🙂` };
+  const table = { 'km-mi':0.621371, 'mi-km':1.609344, 'kg-lb':2.204623, 'lb-kg':0.453592 };
+  const factor = table[from+'-'+to];
+  if(!factor) return { text:'Такую пару пока не умею — знаю км ↔ мили и кг ↔ фунты.' };
+  const res = num * factor;
+  const rounded = Math.abs(res) >= 100 ? res.toFixed(1) : res.toFixed(2);
+  return { text:`${num} ${names[from]} ≈ **${rounded} ${names[to]}**.` };
+}
 async function tryCountry(q){
   const lower = q.toLowerCase();
   if(!/(столица|население\s+страны|флаг\s+страны|страна\s)/.test(lower)) return null;
@@ -1282,19 +1511,19 @@ async function tryCountry(q){
   }catch(e){ return { text:'Не удалось получить данные о стране — проверь интернет.' }; }
 }
 const KNOWLEDGE = [
-  { keys:['земля'], text:'Земля — третья планета от Солнца и единственная известная планета с жизнью. Полный оборот вокруг Солнца — около 365,25 дня.' },
-  { keys:['солнце'], text:'Солнце — звезда в центре нашей системы, жёлтый карлик. До него от Земли около 150 млн км, свет идёт примерно 8 минут.' },
-  { keys:['луна'], text:'Луна — единственный естественный спутник Земли, оборот вокруг Земли — примерно 27,3 дня.' },
-  { keys:['python'], text:'Python — высокоуровневый язык программирования с простым синтаксисом, широко используется в анализе данных, вебе и автоматизации.' },
-  { keys:['javascript','js '], text:'JavaScript — язык программирования для интерактивности в браузере; также используется на сервере через Node.js.' },
-  { keys:['html'], text:'HTML — язык разметки для структуры веб-страниц, работает в связке с CSS и JavaScript.' },
-  { keys:['искусственный интеллект',' ии ','^ии$'], text:'Искусственный интеллект — область компьютерных наук, изучающая создание систем, способных решать задачи, обычно требующие человеческого мышления.' },
-  { keys:['интернет'], text:'Интернет — глобальная сеть компьютерных сетей, объединённых протоколами передачи данных (TCP/IP).' },
-  { keys:['гравитация'], text:'Гравитация — фундаментальное взаимодействие, притяжение тел, обладающих массой; описывается законом Ньютона и общей теорией относительности.' },
-  { keys:['вода'], text:'Вода — химическое соединение H₂O, два атома водорода и один атом кислорода.' },
-  { keys:['алгоритм'], text:'Алгоритм — точная последовательность действий для решения задачи за конечное число шагов.' },
-  { keys:['скорость света'], text:'Скорость света в вакууме — около 299 792 км/с, предельная скорость передачи информации во Вселенной.' },
-  { keys:['казахстан'], text:'Казахстан — государство в Центральной Азии, столица — Астана, крупнейший город — Алматы.' },
+  { keys:['земля'], text:'Земля — наш дом, третья от Солнца и пока единственная планета, где точно есть жизнь. Один оборот вокруг Солнца занимает около 365 дней — отсюда и год.' },
+  { keys:['солнце'], text:'Солнце — обычная звезда, просто очень близко к нам: 150 млн км, и её свет добегает до Земли всего за 8 минут.' },
+  { keys:['луна'], text:'Луна крутится вокруг Земли примерно за 27 дней — и это единственный спутник, который у нас есть.' },
+  { keys:['python'], text:'Python любят за простой, почти человеческий синтаксис — на нём часто начинают учиться программировать, а ещё активно пишут анализ данных и автоматизацию.' },
+  { keys:['javascript','js '], text:'JavaScript изначально придумали, чтобы оживлять сайты в браузере, а теперь на нём пишут и серверы — через Node.js.' },
+  { keys:['html'], text:'HTML отвечает за структуру страницы — заголовки, абзацы, картинки, — а за внешний вид и поведение уже берутся CSS и JavaScript.' },
+  { keys:['искусственный интеллект',' ии ','^ии$'], text:'Искусственный интеллект — это когда компьютер учится решать задачи, которые обычно требуют человеческого соображения: узнавать образы, писать текст, находить закономерности.' },
+  { keys:['интернет'], text:'Интернет — это просто миллионы сетей по всему миру, которые договорились «разговаривать» по одному протоколу (TCP/IP) и потому понимают друг друга.' },
+  { keys:['гравитация'], text:'Гравитация — та самая сила, из-за которой всё падает вниз, а планеты не разлетаются от Солнца. Ньютон её описал первым, Эйнштейн — точнее.' },
+  { keys:['вода'], text:'Вода — это H₂O, два атома водорода на один кислорода. Просто, а без неё никуда.' },
+  { keys:['алгоритм'], text:'Алгоритм — по сути просто чёткий рецепт: делай шаг за шагом и в итоге получишь результат.' },
+  { keys:['скорость света'], text:'Свет в вакууме летит около 299 792 км/с — быстрее в природе ничего не бывает.' },
+  { keys:['казахстан'], text:'Казахстан — страна в Центральной Азии, столица — Астана, а самый крупный город — Алматы.' },
 ];
 function tryKnowledge(q){
   const lower = q.toLowerCase();
@@ -1707,6 +1936,8 @@ async function stepsFor(kind, bubble){
       await push('подключаюсь к Open‑Meteo…', 400); await push('получаю координаты города…', 500); await push('читаю текущий прогноз…', 450);
     } else if(kind==='country'){
       await push('открываю REST Countries…', 400); await push('собираю данные о стране…', 450);
+    } else if(kind==='units'){
+      await push('считаю перевод единиц…', 300);
     } else if(kind==='currency'){
       await push('подключаюсь к сервису курсов валют…', 400); await push('получаю актуальный курс…', 400);
     } else if(kind==='mdn'){
@@ -1889,6 +2120,8 @@ async function answer(q, bubble){
     const w = await tryWeather(q);
     return { html: w.text, notes, src: w.src };
   }
+  const units = tryUnits(q);
+  if(units){ const notes = await stepsFor('units', bubble); return { html: units.text, notes }; }
   const currency = await tryCurrency(q);
   if(currency){ const notes = await stepsFor('currency', bubble); return { html: currency.text, notes, src: currency.src }; }
   const country = await tryCountry(q);
@@ -1925,9 +2158,10 @@ async function callExternalAI(provider, apiKey, history, signal, searchContext){
   const styleHint = mode==='weak' ? 'Отвечай обстоятельно и точно, разбирай вопрос глубже.'
     : mode==='fabric' ? 'Отвечай мощно и по-человечески: разворачивай мысль, добавляй конкретные примеры и живые детали, но без воды. Если вопрос общий (например "любое животное") — выбери конкретный пример, а не давай общее определение категории.'
     : 'Отвечай кратко и сразу по делу.';
+  const toneHint = ' Говори живо, как человек в переписке, а не как статья в энциклопедии: без сухих формулировок вроде «X — это Y, который…», без канцелярита. Проще, короче, по-человечески.';
   const sys = (searchContext
     ? `Ты — Glory, полезный ассистент. Используй результаты поиска ниже, если это уместно, и упомяни источники в ответе.\n\nРезультаты поиска:\n${searchContext}\n\n`
-    : 'Ты — Glory, полезный ассистент, умеешь писать код и объяснять.\n\n') + styleHint;
+    : 'Ты — Glory, полезный ассистент, умеешь писать код и объяснять.\n\n') + styleHint + toneHint;
 
   if(provider === 'anthropic'){
     const res = await fetch('https://api.anthropic.com/v1/messages', {
@@ -2070,7 +2304,7 @@ function isMobileDevice(){
   return window.matchMedia('(max-width:768px)').matches || /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 }
 function applyDeviceMode(){
-  document.getElementById('cameraBtn').style.display = isMobileDevice() ? 'flex' : 'none';
+  document.getElementById('cameraBtn').style.display = 'flex';
 }
 applyDeviceMode();
 if(isMobileDevice()) sidebarEl.classList.add('collapsed');
